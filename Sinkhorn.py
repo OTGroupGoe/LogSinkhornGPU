@@ -22,7 +22,7 @@ def geom_dims(a):
     """
     return a.shape[1:]
 
-def softmin_torch(h, dim, offset):
+def softmin_torch(h, dim):
     """
     Compute the logsumexp of `C` along the dimension `dim`.
     """ 
@@ -80,9 +80,9 @@ def softmin_keops_image(h, xs, ys, eps):
     y1, y2 = ys
     M1, M2, N1, N2 = len(x1), len(x2), len(y1), len(y2)  
     h = h.reshape(B*N1, 1, N2).contiguous()                                         # (B*N1, 1, N2)
-    h = softmin_keops_line(x2, y2, h, eps)                                          # (B*N1, M2)
+    h = softmin_keops_line(h, x2, y2, eps)                                          # (B*N1, M2)
     h = h.reshape((B, N1, M2)).permute((0,2,1)).contiguous().reshape((B*M2, 1, N1)) # (B*M2, 1, N1)
-    h = softmin_keops_line(x1, y1, h, eps)                                          # (B*M2, M1)
+    h = softmin_keops_line(h, x2, y2, eps)                                          # (B*M2, M1)
     h = h.reshape((B, M2, M1)).permute((0,2,1)).contiguous()                        # (B, M1, M2)
     return h
 
@@ -126,7 +126,7 @@ class AbstractSinkhorn:
     """
     def __init__(self, mu, nu, C, eps, muref = None, nuref = None, alpha_init = None,
                  inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False):
+                 max_error_rel = False, **kwargs):
         
         self.eps = torch.tensor(eps, dtype = torch.float32).item()
         self.mu = mu
@@ -229,7 +229,7 @@ class AbstractSinkhorn:
         self.current_error = current_error
         return status
     
-class TorchLogSinkhorn(AbstractSinkhorn):
+class LogSinkhornTorch(AbstractSinkhorn):
     """
     A tensorized implementation of a Sinkhorn solver for standard OT 
 
@@ -250,12 +250,8 @@ class TorchLogSinkhorn(AbstractSinkhorn):
     alpha_init : torch.Tensor with same dimensions as mu, or None
         Initialization for the first Sinkhorn potential
     """
-    def __init__(self, mu, nu, C, eps, muref = None, nuref = None, alpha_init = None,
-                 inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False):
-        super().__init__(mu, nu, C, eps, muref = None, nuref = None, alpha_init = None,
-                 inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False)
+    def __init__(self, mu, nu, C, eps, **kwargs):
+        super().__init__(mu, nu, C, eps, **kwargs)
         
         # TODO: enforce that size of mu, nu and so on should be (B, M, 1)
     
@@ -272,7 +268,7 @@ class TorchLogSinkhorn(AbstractSinkhorn):
     def get_pi_dense(self):
         return torch.exp((self.alpha + self.beta - self.C)/self.eps + self.logmuref + self.lognuref)
 
-class TorchLogSinkhornImage(AbstractSinkhorn):
+class LogSinkhornTorchImage(AbstractSinkhorn):
     """
     Sinkhorn solver for standard OT on images with separable cost. 
     Each Sinkhorn iteration has complexity N^(3/2), instead of the usual N^2. 
@@ -294,12 +290,8 @@ class TorchLogSinkhornImage(AbstractSinkhorn):
     alpha_init : torch.Tensor with same dimensions as mu, or None
         Initialization for the first Sinkhorn potential
     """
-    def __init__(self, mu, nu, C, eps, muref = None, nuref = None, alpha_init = None,
-                 inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False):
-        super().__init__(mu, nu, C, eps, muref = None, nuref = None, alpha_init = None,
-                 inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False)
+    def __init__(self, mu, nu, C, eps, **kwargs):
+        super().__init__(mu, nu, C, eps, **kwargs)
 
         # C should be a tuple of the costs along different dimensions of the measures
         # TODO: check that we are in a 2D problem
@@ -322,7 +314,7 @@ class TorchLogSinkhornImage(AbstractSinkhorn):
     # def get_pi_dense(self):
     #     return torch.exp((self.alpha + self.beta - self.C)/self.eps + self.logmu + self.lognu)
 
-class KeopsLogSinkhorn(AbstractSinkhorn):
+class LogSinkhornKeops(AbstractSinkhorn):
     """
     Online Sinkhorn solver for standard OT, using `pykeops`. 
 
@@ -343,12 +335,8 @@ class KeopsLogSinkhorn(AbstractSinkhorn):
     alpha_init : torch.Tensor with same dimensions as mu, or None
         Initialization for the first Sinkhorn potential
     """
-    def __init__(self, mu, nu, C, eps, muref = None, nuref = None, alpha_init = None,
-                 inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False):
-        super().__init__(mu, nu, C, eps, muref = None, nuref = None, alpha_init = None,
-                 inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False)
+    def __init__(self, mu, nu, C, eps, **kwargs):
+        super().__init__(mu, nu, C, eps, **kwargs)
 
     def get_new_alpha(self):
         x, y = self.C
@@ -361,7 +349,7 @@ class KeopsLogSinkhorn(AbstractSinkhorn):
         return - self.eps * (softmin_keops(h, y, x, self.eps) + self.lognuref - self.lognu)
 
 
-class KeopsLogSinkhornImage(AbstractSinkhorn):
+class LogSinkhornKeopsImage(AbstractSinkhorn):
     """
     Online Sinkhorn solver for standard OT on images with separable cost, using `pykeops`. 
     Each Sinkhorn iteration has complexity N^(3/2), instead of the usual N^2. 
@@ -384,13 +372,8 @@ class KeopsLogSinkhornImage(AbstractSinkhorn):
     alpha_init : torch.Tensor with same dimensions as mu, or None
         Initialization for the first Sinkhorn potential
     """
-    def __init__(self, mu, nu, C, eps, muref = None, nuref = None, alpha_init = None,
-                 inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False):
-        
-        super().__init__(mu, nu, (xs, ys), eps, muref = None, nuref = None, alpha_init = None,
-                 inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False)
+    def __init__(self, mu, nu, C, eps, **kwargs):
+        super().__init__(mu, nu, C, eps, **kwargs)
 
     def get_new_alpha(self):
         xs, ys = self.C
@@ -402,7 +385,7 @@ class KeopsLogSinkhornImage(AbstractSinkhorn):
         h = self.alpha / self.eps + self.logmu
         return - self.eps * (softmin_keops_image(h, ys, xs, self.eps) + self.lognuref - self.lognu)
 
-class CudaLogSinkhornImage(AbstractSinkhorn):
+class LogSinkhornCudaImage(AbstractSinkhorn):
     """
     Online Sinkhorn solver for standard OT on images with separable cost, custom CUDA implementation. 
     Each Sinkhorn iteration has complexity N^(3/2), instead of the usual N^2. 
@@ -425,17 +408,13 @@ class CudaLogSinkhornImage(AbstractSinkhorn):
     alpha_init : torch.Tensor with same dimensions as mu, or None
         Initialization for the first Sinkhorn potential
     """
-    def __init__(self, mu, nu, dx, eps, muref = None, nuref = None, alpha_init = None,
-                 inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False):
+    def __init__(self, mu, nu, dx, eps, **kwargs):
         
         # TODO: check that dx is actually a number
         Ms = geom_dims(mu)
         Ns = geom_dims(nu)
         assert len(Ms) == len(Ns) == 2, "Shapes incompatible with images"
-        super().__init__(mu, nu, (dx, Ms, Ns), eps, muref = None, nuref = None, alpha_init = None,
-                 inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False)
+        super().__init__(mu, nu, (dx, Ms, Ns), eps, **kwargs)
         # Softmin function assumes inputs of shape (N, dim)
 
     def get_new_alpha(self):

@@ -1,0 +1,1 @@
+void LogSumExpCUDAKernel(int B, int M, int N, float *alpha, float *beta, float dx);

@@ -50,12 +50,11 @@ def softmin_keops(h, x, y, eps):
     Compute the online logsumexp of hj - |xi-yj|^2/eps with respect to the variable j.
     Inspired by `geomloss`.
     """ 
-    _, dim = y.shape
     B = batch_dim(h)
-    xi = LazyTensor(x.view(1, -1, 1, dim))
-    yj = LazyTensor(y.view(1, 1, -1, dim))
+    xi = LazyTensor(x[:, :, None, :])
+    yj = LazyTensor(y[:, None, :, :])
     Cij = ((xi - yj)**2).sum(-1)
-    hj = LazyTensor(h.view(B, 1, -1, 1))
+    hj = LazyTensor(h[:, None, :, None])
     return (hj-Cij/eps).logsumexp(2).view(B, -1)
 
 def softmin_keops_line(h, x, y, eps):
@@ -113,7 +112,7 @@ class AbstractSinkhorn:
         First marginal (or marginals if B > 1)
     nu : torch.Tensor of size (B, N) or (B, N1, ..., Nd)
         Second marginal (or marginals if B > 1)
-    C : cost matrix (may be torch.Tensor, keops.LazyTensor,...)
+    C : general object encoding the cost matrix
         Cost matrix
     eps : float
         Regularization strength
@@ -205,11 +204,6 @@ class AbstractSinkhorn:
         for _ in range(niter):
             self.update_alpha()
             self.update_beta()
-        # beta_prev = torch.clone(self.beta)
-        # self.update_alpha()
-        # self.update_beta()
-        # # TODO: comment what is precisely this error
-        # sinkhorn_error = torch.sum(self.nu*torch.abs(1 - torch.exp((beta_prev - self.beta)/self.eps)))
         self.Niter += niter
         return self.get_current_error()
 
@@ -235,9 +229,9 @@ class LogSinkhornTorch(AbstractSinkhorn):
 
     Attributes
     ----------
-    mu : torch.Tensor of size (B, M, 1)
+    mu : torch.Tensor of size (B, M)
         First marginals
-    nu : torch.Tensor of size (B, 1, N)
+    nu : torch.Tensor of size (B, N)
         Second marginals 
     C : torch.Tensor of size (1, M, N) or (B, M, N)
         Cost matrix
@@ -252,8 +246,16 @@ class LogSinkhornTorch(AbstractSinkhorn):
     """
     def __init__(self, mu, nu, C, eps, **kwargs):
         super().__init__(mu, nu, C, eps, **kwargs)
-        
-        # TODO: enforce that size of mu, nu and so on should be (B, M, 1)
+        # mu, nu are given in the shape (B, M) and (B, N). We reshape them
+        # to make the Sinkhorn iters more readable.
+        # X variables
+        self.logmu = self.logmu.view((self.B, -1, 1))
+        self.logmuref = self.logmuref.view((self.B, -1, 1))
+        self.alpha = self.alpha.view((self.B, -1, 1))
+        # Y variables
+        self.lognu = self.lognu.view((self.B, 1, -1))
+        self.lognuref = self.lognuref.view((self.B, 1, -1))
+        self.beta = self.beta.view((self.B, 1, -1))
     
     def get_new_alpha(self):
         return - self.eps * (
@@ -320,12 +322,13 @@ class LogSinkhornKeops(AbstractSinkhorn):
 
     Attributes
     ----------
-    mu : torch.Tensor of size (B, M, 1)
+    mu : torch.Tensor of size (B, M)
         First marginals
-    nu : torch.Tensor of size (B, 1, N)
+    nu : torch.Tensor of size (B, N)
         Second marginals 
-    C : LazyTensor
-        Cost matrices along each dimension
+    C : tuple of the form (X, Y)
+        Coordinates of mu and nu. Must have shapes of the form 
+        (B, M, dim) or (1, M, dim), where dim is the ambient dimension
     eps : float
         Regularization strength
     muref : torch.Tensor with same dimensions as mu (except axis 0, which can have len = 1)
@@ -336,6 +339,12 @@ class LogSinkhornKeops(AbstractSinkhorn):
         Initialization for the first Sinkhorn potential
     """
     def __init__(self, mu, nu, C, eps, **kwargs):
+        x, y = C
+        # Check shapes
+        assert len(x.shape) == 3, "x.shape must be of the form (B, M, dim) or (1, M, dim)"
+        assert len(y.shape) == 3, "y.shape must be of the form (B, N, dim) or (1, N, dim)"
+        # Check consistent dimension
+        assert x.shape[-1] == y.shape[-1], "spatial dim of x and y must coincide"
         super().__init__(mu, nu, C, eps, **kwargs)
 
     def get_new_alpha(self):
@@ -397,8 +406,8 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         First marginals
     nu : torch.Tensor of size (B, N1, N2)
         Second marginals 
-    dx : float
-        Distance between pixels.
+    C  : either float or tuple of the form ((x1, x2), (y1, y2))
+        Distance between pixels, or grid coordinates
     eps : float
         Regularization strength
     muref : torch.Tensor with same dimensions as mu (except axis 0, which can have len = 1)
@@ -408,9 +417,15 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
     alpha_init : torch.Tensor with same dimensions as mu, or None
         Initialization for the first Sinkhorn potential
     """
-    def __init__(self, mu, nu, dx, eps, **kwargs):
+    def __init__(self, mu, nu, C, eps, **kwargs):
         
         # TODO: check that dx is actually a number
+        if isinstance(C, (int, float)):
+            dx = C
+        else:
+            xs, ys = self.C
+            # TODO: check that xs, ys have same dx
+            dx = xs[0][1] - xs[0][0]
         Ms = geom_dims(mu)
         Ns = geom_dims(nu)
         assert len(Ms) == len(Ns) == 2, "Shapes incompatible with images"

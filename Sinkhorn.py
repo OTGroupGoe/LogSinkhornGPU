@@ -1,6 +1,7 @@
 import torch
 from pykeops.torch import LazyTensor
 from LogSinkhornGPUBackend import LogSumExpCUDA
+import math
 
 def log_dens(a):
     """
@@ -94,7 +95,7 @@ def softmin_cuda_image(h, Ms, Ns, eps, dx):
     B = batch_dim(h)
     M1, M2 = Ms
     N1, N2 = Ns
-    dx_eff = dx/eps
+    dx_eff = dx/math.sqrt(eps)
     h = h.view(B*N1, N2).contiguous()                                               # (B*N1, N2)
     h = LogSumExpCUDA(h, M2, dx_eff)                                                 # (B*N1, M2)
     h = h.reshape((B, N1, M2)).permute((0,2,1)).contiguous().reshape((B*M2, N1))    # (B*M2, N1)

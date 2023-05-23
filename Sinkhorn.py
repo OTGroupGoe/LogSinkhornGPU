@@ -1,4 +1,4 @@
-from .softmin import * 
+from softmin import * 
 
 class AbstractSinkhorn:
     """

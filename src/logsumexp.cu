@@ -5,7 +5,7 @@
 #include <torch/extension.h>
 
 ////////////////////////////
-// Simple routines
+// logsumexp kernel
 ////////////////////////////
 
 // Compiling this with --use_fast_math we get some noticeable performance improvement
@@ -13,23 +13,26 @@ __global__ void logsumexp(int B, int M, int N, float *alpha, float *beta, float 
 {
     // alpha is input, with size (B, N)
     // beta is output, with size (B, M)
-    int index = blockIdx.x * blockDim.x + threadIdx.x; // index of the reduction, this is (b,i), this is of the result beta
+    int index = blockIdx.x * blockDim.x + threadIdx.x; // linear index for beta, corresponds to cartesian (b, i)
     int b = index / M;
     int i = index % M;
-    if (b >= B){ // care for bigger-than-size indices
+    if (b >= B){ // take care of bigger-than-size indices
         return;
     }
-    dx = dx*dx; // for just multiplying to the square cost
-    float m = -1e30f; // TODO: check initialization
+    dx = dx*dx; // turn dx to dx^2 (saves multiplications below)
+    float m = -1e30f; // Initialize max for logsumexp stabilization
+    // Compute max in first pass. Proved to be faster than online + update
     for (int j = 0; j<N; j++)
     {
-        m = max(m, alpha[b*N+j] - (i-j)*(i-j)*dx); // TODO: still to check the squared part
+        m = max(m, alpha[b*N+j] - (i-j)*(i-j)*dx); 
     }
+    // Compute stabilized logsumexp
     float s = 0.0f;
     for (int j = 0; j<N; j++)
     {
-        s += exp(alpha[b*N+j] - (i-j)*(i-j)*dx - m); // TODO: still to check the squared part
+        s += exp(alpha[b*N+j] - (i-j)*(i-j)*dx - m);
     }
+    // Remove stabilization
     beta[index] = log(s)+m;
 }
 

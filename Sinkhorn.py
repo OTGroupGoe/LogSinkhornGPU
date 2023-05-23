@@ -27,7 +27,7 @@ def softmin_torch(h, dim):
     """
     Compute the logsumexp of `C` along the dimension `dim`.
     """ 
-    return torch.logsumexp(h, dim = dim, keepdims = True)
+    return torch.logsumexp(h, dim = dim, keepdims = False)
 
 def softmin_torch_image(h, C1, C2, eps):
     """
@@ -97,9 +97,9 @@ def softmin_cuda_image(h, Ms, Ns, eps, dx):
     N1, N2 = Ns
     dx_eff = dx/math.sqrt(eps)
     h = h.view(B*N1, N2).contiguous()                                               # (B*N1, N2)
-    h = LogSumExpCUDA(h, M2, dx_eff)                                                 # (B*N1, M2)
+    h = LogSumExpCUDA(h, M2, dx_eff)                                                # (B*N1, M2)
     h = h.reshape((B, N1, M2)).permute((0,2,1)).contiguous().reshape((B*M2, N1))    # (B*M2, N1)
-    h = LogSumExpCUDA(h, M1, dx_eff)                                                 # (B*M2, M1)
+    h = LogSumExpCUDA(h, M1, dx_eff)                                                # (B*M2, M1)
     h = h.reshape((B, M2, M1)).permute((0,2,1)).contiguous()                        # (B, M1, M2)
     return h
 
@@ -247,29 +247,23 @@ class LogSinkhornTorch(AbstractSinkhorn):
     """
     def __init__(self, mu, nu, C, eps, **kwargs):
         super().__init__(mu, nu, C, eps, **kwargs)
-        # mu, nu are given in the shape (B, M) and (B, N). We reshape them
-        # to make the Sinkhorn iters more readable.
-        # X variables
-        self.logmu = self.logmu.view((self.B, -1, 1))
-        self.logmuref = self.logmuref.view((self.B, -1, 1))
-        self.alpha = self.alpha.view((self.B, -1, 1))
-        # Y variables
-        self.lognu = self.lognu.view((self.B, 1, -1))
-        self.lognuref = self.lognuref.view((self.B, 1, -1))
-        self.beta = self.beta.view((self.B, 1, -1))
-    
+
     def get_new_alpha(self):
         return - self.eps * (
-            softmin_torch((self.beta-self.C)/self.eps + self.lognuref, 2) + self.logmuref - self.logmu
+            softmin_torch((self.beta[:,None,:]-self.C)/self.eps + self.lognuref[:,None,:], 2) 
+            + 
+            self.logmuref - self.logmu
             )
             
     def get_new_beta(self):
         return - self.eps * (
-            softmin_torch((self.alpha-self.C)/self.eps + self.logmuref, 1) + self.lognuref - self.lognu
+            softmin_torch((self.alpha[:,:,None]-self.C)/self.eps + self.logmuref[:,:,None], 1) 
+            + 
+            self.lognuref - self.lognu
             )
 
     def get_pi_dense(self):
-        return torch.exp((self.alpha + self.beta - self.C)/self.eps + self.logmuref + self.lognuref)
+        return torch.exp((self.alpha[:,:,None] + self.beta[:,None,:] - self.C)/self.eps + self.logmuref[:,:,None] + self.lognuref[:,None,:])
 
 class LogSinkhornTorchImage(AbstractSinkhorn):
     """
@@ -420,7 +414,6 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
     """
     def __init__(self, mu, nu, C, eps, **kwargs):
         
-        # TODO: check that dx is actually a number
         if isinstance(C, (int, float)):
             dx = C
         else:

@@ -51,7 +51,10 @@ STATIC_LIB := $(OBJ_DIR)/libmake_pytorch.a
 
 # CUDA_ARCH := -gencode arch=compute_75,code=sm_75 -gencode arch=compute_70,code=sm_70
 
-CUDA_ARCH := -gencode arch=compute_70,code=compute_70
+CUDA_ARCH := -gencode arch=compute_70,code=sm_70 \    	## Machine code for compute capability 7.0
+			-gencode arch=compute_75,code=sm_75 \		## Machine code for cc 7.5
+			-gencode arch=compute_75,code=compute_75 \	## PTX code for cc 7.5 or higher
+			-gencode arch=compute_52,code=compute_52	## PTX code for cc 5.2 or higher
 
 # We will also explicitly add stdc++ to the link target.
 # LIBRARIES += stdc++ cudart c10 caffe2 torch torch_python caffe2_gpu
@@ -60,7 +63,6 @@ LIBRARIES += stdc++ torch torch_python
 # Debugging
 ifeq ($(DEBUG), 1)
 	COMMON_FLAGS += -DDEBUG -g -O0
-	# https://gcoe-dresden.de/reaching-the-shore-with-a-fog-warning-my-eurohack-day-4-morning-session/
 	NVCCFLAGS += -g -G # -rdc true
 else
 	COMMON_FLAGS += -DNDEBUG -O3

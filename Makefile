@@ -52,8 +52,7 @@ STATIC_LIB := $(OBJ_DIR)/libmake_pytorch.a
 # CUDA_ARCH := -gencode arch=compute_75,code=sm_75 -gencode arch=compute_70,code=sm_70
 
 CUDA_ARCH := -gencode arch=compute_70,code=sm_70 \
-		-gencode arch=compute_75,code=sm_75	 \	
-		-gencode arch=compute_75,code=compute_75 \
+		-gencode arch=compute_75,code=sm_75	
 
 # We will also explicitly add stdc++ to the link target.
 # LIBRARIES += stdc++ cudart c10 caffe2 torch torch_python caffe2_gpu

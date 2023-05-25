@@ -16,17 +16,11 @@ This package aims to provide fast, stable and flexible implementations of the Lo
 
 This package is designed to solve the regularized optimal transport problem
 
-$$ 
-\min_{\pi \in \Pi(\mu, \nu)} \langle c, \pi \rangle + \varepsilon \operatorname{KL}(\pi | \hat{\mu}\otimes \hat{\nu})
-$$
+$$ \min_{\pi \in \Pi(\mu, \nu)} \langle c, \pi \rangle + \varepsilon \text{KL}(\pi | \hat{\mu}\otimes \hat{\nu})$$
 
 This problem can be solved with the Sinkhorn algorithm. The solution takes the form of a diagonal scaling, i.e.
 
-$$
-\pi_{ij}
-=
-\exp\left( \frac{\alpha_i + \beta_j - c_{ij}}{\varepsilon} \right) \hat{\mu}_i\, \hat{\nu}_j
-$$
+$$\pi_{ij} = \exp\left( \frac{\alpha_i + \beta_j - c_{ij}}{\varepsilon} \right) \hat{\mu}_i\, \hat{\nu}_j $$
 
 where the *dual potentials* $\alpha$ and $\beta$ satisfy the relations
 
@@ -101,10 +95,9 @@ $$ \alpha_{i_1, i_2} =  - \varepsilon \log
 \left[
 \sum_{j_2}\exp\left( h_{j_1, j_2} - \frac{(x_{i_2} - y_{j_2})^2}{\varepsilon}
 \right)
-\right]
-$$
+\right] $$
 
-Thus, the original logsumexp (with complexity in $O(M_1M_2N_1N_2)$) can be replaced by a first logsumexp (with complexity in $O(M_2N_1N_2)$)
+Thus, the original logsumexp (with complexity in $O(M_1 M_2 N_1 N_2)$) can be replaced by a first logsumexp (with complexity in $O(M_2N_1N_2)$)
 
 $$ \tilde{\alpha}_{j_1, i_2} := \log \sum_{j_2}\exp\left( h_{j_1, j_2} - \frac{(x_{i_2} - y_{j_2})^2}{\varepsilon}\right) $$
 

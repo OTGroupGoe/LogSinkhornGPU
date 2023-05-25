@@ -87,8 +87,13 @@ where $h_j := \nu_j + \beta_j / \varepsilon$ (obtaining $\beta$ from $\alpha$ is
 
 
 $$ \alpha_{i_1, i_2} =  - \varepsilon \log \sum_{j_1, j_2} \exp\left( h_{j_1, j_2} - \frac{(x_{i_1} - y_{j_1})^2 + (x_{i_2} - y_{j_2})^2}{\varepsilon}\right)$$
-
-
+or, more conveniently
+$$ \alpha_{i_1, i_2} =  - \varepsilon \log 
+\sum_{j_1} \exp\left(  - \frac{(x_{i_1} - y_{j_1})^2}{\varepsilon}\right)
+\left[
+\sum_{j_2}\exp\left( h_{j_1, j_2} - \frac{(x_{i_2} - y_{j_2})^2}{\varepsilon}
+\right)
+\right] $$
 
 Thus, the original logsumexp (with complexity in $O(M_1 M_2 N_1 N_2)$) can be replaced by a first logsumexp (with complexity in $O(M_2N_1N_2)$)
 

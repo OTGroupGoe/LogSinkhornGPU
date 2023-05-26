@@ -36,14 +36,14 @@ def softmin_torch_image(h, C1, C2, eps):
     """ 
 
     B = batch_dim(h)
-    M1, N1 = C1.shape
-    M2, N2 = C2.shape
+    _, M1, N1 = C1.shape
+    _, M2, N2 = C2.shape
     # h is assumed to be of shape (B, N1, N2)    
-    h = h.reshape(B, N1, 1, N2).contiguous()                    # (B, N1, 1, N2)
-    h = torch.logsumexp(h - C2/eps, dim = 3, keepdims = True)   # (B, N1, M2, 1)
-    h = h.permute((0, 2, 3, 1)).contiguous()                    # (B, M2, 1, N1)
-    h = torch.logsumexp(h - C1/eps, dim = 3, keepdims = True)   # (B, M2, M1, 1)
-    h = h.permute((0, 2, 1, 3)).reshape(B, M1, M2).contiguous() # (B, M1, M2)
+    h = h.view(B, N1, 1, N2).contiguous()                                     # (B, N1, 1, N2)
+    h = torch.logsumexp(h - C2[:,None,:,:]/eps, dim = 3, keepdims = True)     # (B, N1, M2, 1)
+    h = h.permute((0, 2, 3, 1)).contiguous()                                  # (B, M2, 1, N1)
+    h = torch.logsumexp(h - C1[:,None,:,:]/eps, dim = 3, keepdims = True)     # (B, M2, M1, 1)
+    h = h.permute((0, 2, 1, 3)).reshape(B, M1, M2).contiguous()               # (B, M1, M2)
     return h
 
 def softmin_keops(h, x, y, eps):
@@ -288,13 +288,20 @@ class LogSinkhornTorchImage(AbstractSinkhorn):
         Initialization for the first Sinkhorn potential
     """
     def __init__(self, mu, nu, C, eps, **kwargs):
-        super().__init__(mu, nu, C, eps, **kwargs)
 
         # C should be a tuple of the costs along different dimensions of the measures
         # TODO: check that we are in a 2D problem
-        # TODO: should C also have a batch dimension?
-        for (i, Ci) in enumerate(self.C):
-            assert Ci.shape == (mu.shape[i+1], nu.shape[i+1]), "Dimensions of cost and marginal not matching"
+        # Check whether the cost has a batch dimension, and if not, add it.
+        if len(C[0].shape) == 2:
+            for Ci in C:
+                assert len(Ci.shape) == 2, "Dimensions of costs accross dimensions are not consistent"
+            C = tuple(Ci[None,:,:] for Ci in C)
+        for (i, Ci) in enumerate(C):
+            assert Ci.shape[1:] == (mu.shape[i+1], nu.shape[i+1]), "Dimensions of cost and marginal not matching"
+
+        self.CT = tuple(Ci.permute((0,2,1)).contiguous() for Ci in C)
+        super().__init__(mu, nu, C, eps, **kwargs)
+        # Get transpose transport matrix
 
     def get_new_alpha(self):
         h = (self.beta / self.eps + self.lognuref)
@@ -305,7 +312,7 @@ class LogSinkhornTorchImage(AbstractSinkhorn):
     def get_new_beta(self):
         h = (self.alpha / self.eps + self.logmuref)
         return - self.eps * (
-            softmin_torch_image(h, self.C[0].T, self.C[1].T, self.eps) + self.lognuref - self.lognu
+            softmin_torch_image(h, self.CT[0], self.CT[1], self.eps) + self.lognuref - self.lognu
             )
 
     # def get_pi_dense(self):
@@ -413,8 +420,7 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         Initialization for the first Sinkhorn potential
     """
     def __init__(self, mu, nu, C, eps, **kwargs):
-        
-        if isinstance(C, (int, float)):
+        if isinstance(C, (int, float)): 
             dx = C
         else:
             xs, ys = C

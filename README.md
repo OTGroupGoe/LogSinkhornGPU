@@ -71,9 +71,14 @@ All the inputs are assumed to have shapes of the form (B, M) (or (B, M1, ..., Md
 
 In our experience solving optimal transport problems in different regimes, not all solvers perform the best for all problem sizes. CPU solvers work very well when one has many heterogeneous problems of small size (and several cores to solve them in parallel); this is the case, for example, in the domain decomposition algorithm for optimal transport. On the other hand, GPU solvers such as `geomloss` work specially well for big problems. 
 
-A comparison of the performance for one problem and many small problems is given below. The objective in providing this comparison is that users can choose what solver is best suited for their needs. In summary: 
+A comparison of the performance for one problem and many small problems is given below. The objective in providing this comparison is that users can choose the solver best suited for their needs. As a summary: 
+* For point clouds up to ~ 5000 points each, the best option is the `torch` implementation. 
+* For large point clouds one should use the `keops` implementation. 
+* For problems on a grid the best option is our `cuda grid` implementation, except perhaps for extremely large problems (marginals of size n×n for n ≥ 2048), where `keops grid` might be better.
 
 ![Benchmark of different solvers](examples/results_benchmark.png)
+Results from running `examples/benchmark.py` on an NVidia Quadro RTX5000.
+
 
 ## Separable implementations
 
@@ -85,9 +90,10 @@ $$ \alpha_i =  - \varepsilon \log \sum_j \exp\left( h_j - \frac{|X_i - Y_j|^2_2}
 
 where $h_j := \nu_j + \beta_j / \varepsilon$ (obtaining $\beta$ from $\alpha$ is analogous). Since the data lives on respective rectangular grids of size $(M_1, M_2)$ and $(N_1, N_2)$, we can decompose the index $i$ into a pair of indices $i_1, i_2$, and analogously for $j$. Then, $X_{i_1, i_2} = (x_{i_1}, x_{i_2})$, and analogously for $Y$. With this indexing the iteration reads: 
 
-
 $$ \alpha_{i_1, i_2} =  - \varepsilon \log \sum_{j_1, j_2} \exp\left( h_{j_1, j_2} - \frac{(x_{i_1} - y_{j_1})^2 + (x_{i_2} - y_{j_2})^2}{\varepsilon}\right)$$
+
 or, more conveniently
+
 $$ \alpha_{i_1, i_2} =  - \varepsilon \log 
 \sum_{j_1} \exp\left(  - \frac{(x_{i_1} - y_{j_1})^2}{\varepsilon}\right)
 \left[

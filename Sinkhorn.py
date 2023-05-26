@@ -126,7 +126,7 @@ class AbstractSinkhorn:
     """
     def __init__(self, mu, nu, C, eps, muref = None, nuref = None, alpha_init = None,
                  inner_iter = 20, max_iter = 10000, max_error = 1e-4, 
-                 max_error_rel = False, **kwargs):
+                 max_error_rel = False, get_beta = True, **kwargs):
         
         self.eps = torch.tensor(eps, dtype = torch.float32).item()
         self.mu = mu
@@ -162,7 +162,8 @@ class AbstractSinkhorn:
         else:
             self.alpha = torch.zeros_like(self.mu)
         # Perform a first Sinkhorn iteration to initialize beta
-        self.beta = self.get_new_beta()
+        if get_beta:
+            self.beta = self.get_new_beta()
 
         # Error and iteration parameters
         self.max_error = max_error

@@ -417,7 +417,7 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         if isinstance(C, (int, float)):
             dx = C
         else:
-            xs, ys = self.C
+            xs, ys = C
             # TODO: check that xs, ys have same dx
             dx = xs[0][1] - xs[0][0]
         Ms = geom_dims(mu)

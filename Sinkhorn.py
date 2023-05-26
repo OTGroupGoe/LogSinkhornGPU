@@ -82,7 +82,7 @@ def softmin_keops_image(h, xs, ys, eps):
     h = h.reshape(B*N1, 1, N2).contiguous()                                         # (B*N1, 1, N2)
     h = softmin_keops_line(h, x2, y2, eps)                                          # (B*N1, M2)
     h = h.reshape((B, N1, M2)).permute((0,2,1)).contiguous().reshape((B*M2, 1, N1)) # (B*M2, 1, N1)
-    h = softmin_keops_line(h, x2, y2, eps)                                          # (B*M2, M1)
+    h = softmin_keops_line(h, x1, y1, eps)                                          # (B*M2, M1)
     h = h.reshape((B, M2, M1)).permute((0,2,1)).contiguous()                        # (B, M1, M2)
     return h
 

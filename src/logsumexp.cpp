@@ -27,3 +27,33 @@ torch::Tensor LogSumExpCUDA(torch::Tensor alpha, int M, float dx) {
 
   return beta;
 }
+
+torch::Tensor InnerNewtonCUDA(
+    int n_iter, float tol, torch::Tensor t, float eps, float lam,
+    torch::Tensor lognu, torch::Tensor lognu_nJ, torch::Tensor logKTu
+) {
+    // check input sizes
+    int N = t.numel();
+    if (N != lognu.numel())
+        throw std::invalid_argument(
+            Formatter() << "Shape mismatch: "
+                        << "lognu must have same dimensions as t"
+        );
+    if (N != lognu_nJ.numel())
+        throw std::invalid_argument(
+            Formatter() << "Shape mismatch: "
+                        << "lognu_nJ must have same dimensions as t"
+        );
+    if (N != logKTu.numel())
+        throw std::invalid_argument(
+            Formatter() << "Shape mismatch: "
+                        << "logKTu must have same dimensions as t"
+        );
+
+    // call cuda kernel
+    InnerNewtonCUDAKernel(
+        n_iter, tol, N, t.data_ptr<float>(), eps, lam,
+        lognu.data_ptr<float>(), lognu_nJ.data_ptr<float>(), logKTu.data_ptr<float>()    
+    )
+    return t;
+}

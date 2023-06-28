@@ -54,8 +54,8 @@ def main():
     partA = [[i, i+1] for i in range(0, N, 2)]
     partB = [[0], *[[i, i+1] for i in range(1, N-2, 2)], [N-1]]
 
-    print(f'A has {len(partA)} cells:\n', partA)
-    print(f'B has {len(partB)} cells:\n', partB)
+    # print(f'A has {len(partA)} cells:\n', partA)
+    # print(f'B has {len(partB)} cells:\n', partB)
 
     t0 = time.perf_counter()
 
@@ -79,6 +79,8 @@ def main():
 
     t1 = time.perf_counter()
     print(f'time = {t1-t0:.4f}s')
+
+    plt.savefig('domdec-balanced.png', bbox_inches='tight')
 
 
 if __name__ == '__main__':

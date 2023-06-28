@@ -23,24 +23,17 @@ def check():
 
 
 # @torch.jit.script
-# def inner_newton(t, eps: float, lam: float, lognu, nu_nJ, logKTu):
-#     for _ in range(3):
-#         g = torch.log(nu_nJ + torch.exp(-lam*t/eps))
-#         g = g - t - lognu - eps/lam*logKTu
-#         g_grad = -lam/(eps * (1 + nu_nJ*torch.exp(lam*t/eps))) - 1
-#         t = t - g/g_grad
-#     return t
-@torch.jit.script
 def inner_newton(t, eps: float, lam: float, lognu, lognu_nJ, logKTu):
-    for _ in range(2):
-        #         g = torch.log(nu_nJ + torch.exp(-lam*t/eps))
-        g = torch.logsumexp(
-            torch.cat([lognu_nJ[None, :, :], -lam*t[None, :, :]/eps]), dim=0
-        )
-        g = g - t - lognu - eps/lam*logKTu
-        g_grad = -lam/(eps * (1 + torch.exp(lam*t/eps + lognu_nJ))) - 1
-        t = t - g/g_grad
-    return t
+    # for _ in range(2):
+    #     #         g = torch.log(nu_nJ + torch.exp(-lam*t/eps))
+    #     g = torch.logsumexp(
+    #         torch.cat([lognu_nJ[None, :, :], -lam*t[None, :, :]/eps]), dim=0
+    #     )
+    #     g = g - t - lognu - eps/lam*logKTu
+    #     g_grad = -lam/(eps * (1 + torch.exp(lam*t/eps + lognu_nJ))) - 1
+    #     t = t - g/g_grad
+    # return t
+    return lognu_nJ - lognu - eps/lam*logKTu
 
 
 class SubdomainUnbalancedSinkhornTorch(AbstractSinkhorn):
@@ -78,6 +71,7 @@ class SubdomainUnbalancedSinkhornTorch(AbstractSinkhorn):
             (self.alpha[:, :, None] - self.C) / self.eps
             + self.logmuref[:, :, None] + self.lognuref[:, None, :], dim=1
         )
+        # print('logKTu: ', logKTu)
         self.t = inner_newton(
             self.t, self.eps, self.lam, self.lognu, self.lognu_nJ, logKTu
         )
@@ -89,14 +83,14 @@ class SubdomainUnbalancedSinkhornTorch(AbstractSinkhorn):
             + self.logmuref[:, :, None] + self.lognuref[:, None, :]
         )
 
-    def get_current_error(self):  # TODO
+    def get_current_error(self):
         """
         Get current error for unbalanced Sinkhorn
         """
         new_alpha = self.get_new_alpha()
         # Compute current marginal
         new_mu = self.mu * torch.exp((self.alpha - new_alpha)/self.scale)
-        # Update beta (we get an iteration for free)
+        # Update alpha (we get an iteration for free)
         self.alpha = new_alpha
         # Finish this sinkhorn iter
         self.update_beta()
@@ -115,6 +109,7 @@ def batch_iteration(pi, x, y, muref, nuref, eps, lam, partition, device='cuda'):
     C = torch.zeros((B, max_cell_size, n_pixels), device=device)
 
     t = torch.zeros((B, n_pixels), device=device)
+    # t = 100*torch.ones((B, n_pixels), device=device)
     Nu_nJ = torch.zeros((B, n_pixels), device=device)
 
     # Batch problems
@@ -122,9 +117,10 @@ def batch_iteration(pi, x, y, muref, nuref, eps, lam, partition, device='cuda'):
         piJ = pi[J, :]
         xJ = x[J]
         muJ = torch.sum(piJ, dim=1).ravel()
-        nuJ = torch.sum(piJ, dim=0).ravel()
+        # nuJ = torch.sum(piJ, dim=0).ravel()
+        nu = torch.sum(pi, dim=0).ravel()
         Mu[i, :len(J)] = muJ
-        Nu[i, :] = nuJ
+        Nu[i, :] = nu
         Muref[i, :len(J)] = muref[0, J]
         # Muref[i, :] = muref[0, J]  # same as above?
         Nuref[i, :] = nuref[0, :]
@@ -132,6 +128,7 @@ def batch_iteration(pi, x, y, muref, nuref, eps, lam, partition, device='cuda'):
 
         nJ = list(set(range(n_pixels)) - set(J))
         nu_nJ = torch.sum(pi[nJ, :], axis=0).ravel()
+        # print('nu_nJ: ', nu_nJ)
         Nu_nJ[i, :] = nu_nJ
 
     solver = SubdomainUnbalancedSinkhornTorch(
@@ -172,7 +169,7 @@ def main():
     eps = 1/M**2
     lam = 1000
 
-    n_iter = 10
+    n_iter = 20
 
     cols = 5
     rows = (n_iter-1)//cols + 1
@@ -191,7 +188,13 @@ def main():
     t1 = time.perf_counter()
     print(f'time = {t1-t0:.4f}s')
 
+    plt.savefig('domdec-unbalanced.png', bbox_inches='tight')
+
+    # batch_iteration(
+    #     pi, x, y, muref, nuref, eps, lam, partA
+    # )
+
 
 if __name__ == '__main__':
-    check()
+    # check()
     main()

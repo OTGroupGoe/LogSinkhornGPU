@@ -58,9 +58,7 @@ __global__ void inner_newton(
     float *lognu, float *lognu_nJ, float *logKTu
 ) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= N) {
-        return;
-    }
+    if (idx >= N) return;
 
     float lameps = lam/eps;
     float epslam = eps/lam;
@@ -98,7 +96,7 @@ void InnerNewtonCUDAKernel(
     cudaDeviceSynchronize();
     cudaError_t err = cudaGetLastError();
     if (cudaSuccess != err)
-    throw std::runtime_error(
-        Formatter() << "CUDA kernel failed : " << std::to_string(err)
-    );
+        throw std::runtime_error(
+            Formatter() << "CUDA kernel failed : " << std::to_string(err)
+        );
 }

@@ -54,6 +54,6 @@ torch::Tensor InnerNewtonCUDA(
     InnerNewtonCUDAKernel(
         n_iter, tol, N, t.data_ptr<float>(), eps, lam,
         lognu.data_ptr<float>(), lognu_nJ.data_ptr<float>(), logKTu.data_ptr<float>()    
-    )
+    );
     return t;
 }

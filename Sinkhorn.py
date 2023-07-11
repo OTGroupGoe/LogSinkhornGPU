@@ -243,9 +243,7 @@ class AbstractSinkhorn:
         self.update_alpha()
         new_beta = self.get_new_beta()
         # Compute new marginal
-        new_nu = self.nu * torch.exp((self.beta - new_beta)/self.eps)
-        #        ^^^^^^^
-        # NOTE   self.nuref ???
+        new_nu = self.nuref * torch.exp((self.beta - new_beta)/self.eps)
         # Update beta (we get an iteration for free)
         self.beta = new_beta
         # Return L1 error
@@ -267,8 +265,8 @@ class AbstractSinkhorn:
         while (self.Niter < self.max_iter) and (self.current_error >= self.max_error):
             self.current_error = self.iterate(self.inner_iter)
             self.Niter += self.inner_iter
-        # status == 1 if Sinkhorn converged
-        status = 1 if self.current_error < self.max_error else -1
+        status = 'converged' if self.current_error < self.max_error \
+            else 'not converged'
         return status
 
 

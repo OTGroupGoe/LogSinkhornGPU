@@ -243,7 +243,7 @@ class AbstractSinkhorn:
         self.update_alpha()
         new_beta = self.get_new_beta()
         # Compute new marginal
-        new_nu = self.nuref * torch.exp((self.beta - new_beta)/self.eps)
+        new_nu = self.nu * torch.exp((self.beta - new_beta)/self.eps)
         # Update beta (we get an iteration for free)
         self.beta = new_beta
         # Return L1 error
@@ -253,10 +253,10 @@ class AbstractSinkhorn:
         """
         Iterate a number of times, and compute the current error
         """
+        self.Niter += niter
         for _ in range(niter):
             self.update_alpha()
             self.update_beta()
-        self.Niter += niter
         return self.get_current_error()
 
     def iterate_until_max_error(self):

@@ -87,7 +87,7 @@ __global__ void inner_newton(
 
         // update t
         t[idx] = t[idx] - g / g_prime;
-        err = g;
+        err = abs(g);
     }
 }
 

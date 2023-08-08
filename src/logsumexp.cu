@@ -16,10 +16,8 @@ __global__ void logsumexp(int B, int M, int N, float *alpha, float *beta, float 
     int index = blockIdx.x * blockDim.x + threadIdx.x; // linear index for beta, corresponds to cartesian (b, i)
     int b = index / M;
     int i = index % M;
-    if (b >= B)
-    { // take care of bigger-than-size indices
-        return;
-    }
+    if (b >= B) // take care of bigger-than-size indices
+        return; 
     dx = dx * dx;     // turn dx to dx^2 (saves multiplications below)
     float m = -1e30f; // Initialize max for logsumexp stabilization
     // Compute max in first pass. Proved to be faster than online + update

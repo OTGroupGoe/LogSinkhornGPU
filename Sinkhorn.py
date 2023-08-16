@@ -210,20 +210,25 @@ class AbstractSinkhorn:
         return self.get_current_error()
 
     def iterate_until_max_error(self):
-        current_error = self.current_error
+        max_error = self.max_error
         if self.max_error_rel:
             max_error *= torch.sum(self.mu)
-        while (self.Niter < self.max_iter) and (current_error >= self.max_error):
-            current_error = self.iterate(self.inner_iter)
-            self.Niter += self.inner_iter
-        if current_error < self.max_error:
-            # Sinkhorn converged
-            status = 0
-        else:
-            # Sinkhorn didn't converge
-            status = 1
-        self.current_error = current_error
+        while (self.Niter < self.max_iter) and (self.current_error >= max_error):
+            self.current_error = self.iterate(self.inner_iter)
+        status = 'converged' if self.current_error < self.max_error \
+            else 'not converged'
         return status
+
+    def change_eps(self, new_eps):
+        """
+        Change the regularization strength and reset
+        error and iteration count
+        """
+        # NOTE: Careful, different implementations may need
+        # more steps for this
+        self.eps = new_eps
+        self.Niter = 0
+        self.current_error = self.max_error + 1.0    
     
 class LogSinkhornTorch(AbstractSinkhorn):
     """

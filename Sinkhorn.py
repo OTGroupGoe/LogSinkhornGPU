@@ -1,8 +1,17 @@
 import torch
 from pykeops.torch import LazyTensor
-from LogSinkhornGPUBackend import LogSumExpCUDA
+from LogSinkhornGPUBackend import LogSumExpCUDA_32, LogSumExpCUDA_64
 import math
 
+def LogSumExpCUDA(alpha, M, dx):
+    if alpha.dtype == torch.float32:
+        return LogSumExpCUDA_32(alpha, M, dx)
+    elif alpha.dtype == torch.float64:
+        return LogSumExpCUDA_64(alpha, M, dx)
+    else: 
+        raise NotImplementedError(
+            "LogSumExpCUDA implemented for float and double"
+        )
 
 def log_dens(a):
     """

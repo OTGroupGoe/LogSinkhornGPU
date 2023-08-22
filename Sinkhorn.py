@@ -161,7 +161,7 @@ class AbstractSinkhorn:
         max_error_rel=False, get_beta=True, **kwargs
     ):
 
-        self.eps = torch.tensor(eps, dtype=torch.float32).item()
+        self.eps = torch.tensor(eps, dtype=mu.dtype).item()
         self.mu = mu
         self.nu = nu
         self.logmu = log_dens(self.mu)

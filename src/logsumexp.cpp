@@ -6,7 +6,7 @@
 #include "src/utils.hpp"
 
 // Template struct to determine the appropriate tensor type based on the input 
-template <typename T>
+template <typename Dtype>
 struct TensorTypeSelector {
     static const torch::ScalarType type = torch::kFloat32;
 };
@@ -34,7 +34,7 @@ torch::Tensor LogSumExpCUDA(torch::Tensor alpha, int M, Dtype dx) {
 
     // Init tensor of size (B, M)
     auto options = torch::TensorOptions()
-        .dtype(TensorTypeSelector<T>::type)
+        .dtype(TensorTypeSelector<Dtype>::type)
         .device(alpha.device());
     torch::Tensor beta = torch::empty({B, M}, options);    
 

@@ -6,7 +6,7 @@
 #include "src/utils.hpp"
 
 template <typename Dtype>
-void BalanceCUDA(torch::Tensor nu_basic, torch::Tensor *mass_delta, Dtype thresh_step) {
+void BalanceCUDA(torch::Tensor nu_basic, torch::Tensor mass_delta, Dtype thresh_step) {
 
     // Check input size
     int B = nu_basic.size(0);

@@ -2,7 +2,7 @@
 #include <torch/extension.h>
 #include <ATen/ATen.h>
 
-#include "src/logsumexp.cuh"
+#include "src/domdec.cuh"
 #include "src/utils.hpp"
 
 template <typename Dtype>

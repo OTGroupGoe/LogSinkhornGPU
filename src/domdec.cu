@@ -90,3 +90,92 @@ template void BalanceKernel<float>(
 template void BalanceKernel<double>(
     int B, int C, int N, double *nu_basic, double *mass_delta, double thresh_step
 );
+
+
+////////////////////////////
+// basic_to_composite
+////////////////////////////
+template <typename Dtype>
+__global__ void basic_to_composite_2D(
+    int B, int C,
+    torch::PackedTensorAccesor32<Dtype, 3> nu_composite,
+    torch::PackedTensorAccesor32<Dtype, 4> nu_basic,
+    torch::PackedTensorAccesor32<Dtype, 2> left_in_composite,
+    torch::PackedTensorAccesor32<Dtype, 2> left_in_basic,
+    torch::PackedTensorAccesor32<Dtype, 2> width_basic,
+    torch::PackedTensorAccesor32<Dtype, 2> bottom_in_composite,
+    torch::PackedTensorAccesor32<Dtype, 2> bottom_in_basic,
+    torch::PackedTensorAccesor32<Dtype, 2> height_basic,
+) 
+{
+    int k = blockIdx.x * blockDim.x + threadIdx.x; // index of comp cell
+    int lc, lb, bc, bb, w, h;
+    for (int b = 0; b < C; i++) // index of basic cell
+    {
+        lc = left_in_composite[k][b];
+        lb = left_in_basic[k][b];
+        bc = bottom_in_composite[k][b];
+        bb = bottom_in_basic[k][b];
+        w = width_basic[k][b];
+        h = height_basic[k][b];
+        // Fill box
+        for (int i = 0; i < w; i++)
+        {
+            for (int j = 0; j < h; j++)
+            {
+                nu_composite[k][lc+i][bc+j] = nu_basic[k][b][lb+i][lb+j];
+            }
+        }
+    }
+}
+
+template <typename Dtype>
+void BasicToCompositeKernel_2D(
+    int B, int C,
+    torch::PackedTensorAccesor32<Dtype, 3> nu_composite,
+    torch::PackedTensorAccesor32<Dtype, 4> nu_basic,
+    torch::PackedTensorAccesor32<Dtype, 2> left_in_composite,
+    torch::PackedTensorAccesor32<Dtype, 2> left_in_basic,
+    torch::PackedTensorAccesor32<Dtype, 2> width_basic,
+    torch::PackedTensorAccesor32<Dtype, 2> bottom_in_composite,
+    torch::PackedTensorAccesor32<Dtype, 2> bottom_in_basic,
+    torch::PackedTensorAccesor32<Dtype, 2> height_basic
+) 
+{
+    int blockSize = 256;
+    int numBlocks = (B + blockSize - 1) / blockSize;
+    basic_to_composite_2D<Dtype><<<numBlocks, blockSize>>>(
+        B, C, nu_composite, nu_basic, 
+        left_in_composite, left_in_basic, width_basic,
+        bottom_in_composite, bottom_in_basic, height_basic 
+    );
+    cudaError_t err = cudaGetLastError();
+    if (cudaSuccess != err)
+        throw std::runtime_error(Formatter()
+                                 << "CUDA kernel failed : " << std::to_string(err));
+}
+
+// Instantiate
+template void BasicToCompositeKernel_2D<float>(    
+    int B, int C,
+    torch::PackedTensorAccesor32<float, 3> nu_composite,
+    torch::PackedTensorAccesor32<float, 4> nu_basic,
+    torch::PackedTensorAccesor32<float, 2> left_in_composite,
+    torch::PackedTensorAccesor32<float, 2> left_in_basic,
+    torch::PackedTensorAccesor32<float, 2> width_basic,
+    torch::PackedTensorAccesor32<float, 2> bottom_in_composite,
+    torch::PackedTensorAccesor32<float, 2> bottom_in_basic,
+    torch::PackedTensorAccesor32<float, 2> height_basic
+);
+
+template void BasicToCompositeKernel_2D<double>(    
+    int B, int C,
+    torch::PackedTensorAccesor32<double, 3> nu_composite,
+    torch::PackedTensorAccesor32<double, 4> nu_basic,
+    torch::PackedTensorAccesor32<double, 2> left_in_composite,
+    torch::PackedTensorAccesor32<double, 2> left_in_basic,
+    torch::PackedTensorAccesor32<double, 2> width_basic,
+    torch::PackedTensorAccesor32<double, 2> bottom_in_composite,
+    torch::PackedTensorAccesor32<double, 2> bottom_in_basic,
+    torch::PackedTensorAccesor32<double, 2> height_basic
+);

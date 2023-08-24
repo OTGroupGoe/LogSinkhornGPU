@@ -24,3 +24,15 @@ private:
   Formatter(const Formatter &);
   Formatter &operator=(Formatter &);
 };
+
+// Template struct to determine the appropriate tensor type based on the input 
+template <typename Dtype>
+struct TensorTypeSelector {
+    static const torch::ScalarType type = torch::kFloat32;
+};
+
+// Specialize template for doubles
+template <>
+struct TensorTypeSelector<double> {
+    static const torch::ScalarType type = torch::kFloat64;
+};

@@ -37,7 +37,7 @@ template void BalanceCUDA<double>(
 /////////////////////
 
 template <typename Dtype>
-torch::Tensor BasicToCompositeCuda_2D(
+torch::Tensor BasicToCompositeCUDA_2D(
   torch::Tensor nu_basic, int w, int h,
   torch::Tensor left_in_composite, torch::Tensor left_in_basic,
   torch::Tensor width_basic, 

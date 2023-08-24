@@ -41,7 +41,7 @@ __global__ void balance(
                 thresh = 1E-12;
                 for (int n = 0; n < 2; n++)
                 {
-                    for (int k = 0; k < res; k++)
+                    for (int k = 0; k < N; k++)
                     {
                         int index_ik = index_i * N + k;
                         int index_jk = index_j * N + k;

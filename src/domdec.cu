@@ -55,7 +55,7 @@ __global__ void balance(
                         }
                     }
                     // if fist loop was not  sufficient, set thresh to 0
-                    if (eta > thresh_step);
+                    if (eta > thresh_step)
                         thresh = 0;
                 }
                 // Update the deltas

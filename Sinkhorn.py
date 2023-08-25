@@ -5,13 +5,14 @@ import math
 
 def LogSumExpCUDA(alpha, M, dx):
     if alpha.dtype == torch.float32:
-        return LogSumExpCUDA_32(alpha, M, dx)
+        f = LogSumExpCUDA_32
     elif alpha.dtype == torch.float64:
-        return LogSumExpCUDA_64(alpha, M, dx)
+        f = LogSumExpCUDA_64
     else: 
         raise NotImplementedError(
             "LogSumExpCUDA implemented for float and double"
         )
+    return f(alpha, M, dx)
 
 def log_dens(a):
     """

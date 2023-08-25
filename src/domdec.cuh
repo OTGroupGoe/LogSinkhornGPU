@@ -11,10 +11,10 @@ void BasicToCompositeKernel_2D(
     int B, int C,
     torch::PackedTensorAccessor32<Dtype, 3> nu_composite,
     torch::PackedTensorAccessor32<Dtype, 4> nu_basic,
-    torch::PackedTensorAccessor32<Dtype, 2> left_in_composite,
-    torch::PackedTensorAccessor32<Dtype, 2> left_in_basic,
-    torch::PackedTensorAccessor32<Dtype, 2> width_basic,
-    torch::PackedTensorAccessor32<Dtype, 2> bottom_in_composite,
-    torch::PackedTensorAccessor32<Dtype, 2> bottom_in_basic,
-    torch::PackedTensorAccessor32<Dtype, 2> height_basic
+    torch::PackedTensorAccessor32<int, 2> left_in_composite,
+    torch::PackedTensorAccessor32<int, 2> left_in_basic,
+    torch::PackedTensorAccessor32<int, 2> width_basic,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<int, 2> height_basic
 );

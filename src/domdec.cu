@@ -105,12 +105,14 @@ __global__ void basic_to_composite_2D(
     torch::PackedTensorAccessor32<Dtype, 2> width_basic,
     torch::PackedTensorAccessor32<Dtype, 2> bottom_in_composite,
     torch::PackedTensorAccessor32<Dtype, 2> bottom_in_basic,
-    torch::PackedTensorAccessor32<Dtype, 2> height_basic,
+    torch::PackedTensorAccessor32<Dtype, 2> height_basic
 ) 
 {
     int k = blockIdx.x * blockDim.x + threadIdx.x; // index of comp cell
+    if (k >= B)  // take care of indices bigger than size
+        return;
     int lc, lb, bc, bb, w, h;
-    for (int b = 0; b < C; i++) // index of basic cell
+    for (int b = 0; b < C; b++) // index of basic cell
     {
         lc = left_in_composite[k][b];
         lb = left_in_basic[k][b];

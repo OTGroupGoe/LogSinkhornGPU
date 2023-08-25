@@ -77,7 +77,7 @@ template torch::Tensor BasicToCompositeCUDA_2D<float>(
   torch::Tensor width_basic, 
   torch::Tensor bottom_in_composite, torch::Tensor bottom_in_basic,
   torch::Tensor height_basic
-)
+);
 
 template torch::Tensor BasicToCompositeCUDA_2D<double>(
   torch::Tensor nu_basic, int w, int h,
@@ -85,4 +85,4 @@ template torch::Tensor BasicToCompositeCUDA_2D<double>(
   torch::Tensor width_basic, 
   torch::Tensor bottom_in_composite, torch::Tensor bottom_in_basic,
   torch::Tensor height_basic
-)
+);

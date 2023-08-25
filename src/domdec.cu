@@ -125,7 +125,7 @@ __global__ void basic_to_composite_2D(
         {
             for (int j = 0; j < h; j++)
             {
-                nu_composite[k][lc+i][bc+j] = nu_basic[k][b][lb+i][bb+j];
+                nu_composite[k][lc+i][bc+j] += nu_basic[k][b][lb+i][bb+j];
             }
         }
     }

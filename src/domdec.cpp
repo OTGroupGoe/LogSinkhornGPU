@@ -52,7 +52,7 @@ torch::Tensor BasicToCompositeCUDA_2D(
   auto options = torch::TensorOptions() 
           .dtype(TensorTypeSelector<Dtype>::type)
           .device(nu_basic.device());
-  torch::Tensor nu_composite = torch::empty({B, w, h}, options);
+  torch::Tensor nu_composite = torch::zeros({B, w, h}, options);
 
   // Pass accesors
   BasicToCompositeKernel_2D(

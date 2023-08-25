@@ -98,14 +98,14 @@ template void BalanceKernel<double>(
 template <typename Dtype>
 __global__ void basic_to_composite_2D(
     int B, int C,
-    torch::PackedTensorAccesor32<Dtype, 3> nu_composite,
-    torch::PackedTensorAccesor32<Dtype, 4> nu_basic,
-    torch::PackedTensorAccesor32<Dtype, 2> left_in_composite,
-    torch::PackedTensorAccesor32<Dtype, 2> left_in_basic,
-    torch::PackedTensorAccesor32<Dtype, 2> width_basic,
-    torch::PackedTensorAccesor32<Dtype, 2> bottom_in_composite,
-    torch::PackedTensorAccesor32<Dtype, 2> bottom_in_basic,
-    torch::PackedTensorAccesor32<Dtype, 2> height_basic,
+    torch::PackedTensorAccessor32<Dtype, 3> nu_composite,
+    torch::PackedTensorAccessor32<Dtype, 4> nu_basic,
+    torch::PackedTensorAccessor32<Dtype, 2> left_in_composite,
+    torch::PackedTensorAccessor32<Dtype, 2> left_in_basic,
+    torch::PackedTensorAccessor32<Dtype, 2> width_basic,
+    torch::PackedTensorAccessor32<Dtype, 2> bottom_in_composite,
+    torch::PackedTensorAccessor32<Dtype, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<Dtype, 2> height_basic,
 ) 
 {
     int k = blockIdx.x * blockDim.x + threadIdx.x; // index of comp cell
@@ -132,14 +132,14 @@ __global__ void basic_to_composite_2D(
 template <typename Dtype>
 void BasicToCompositeKernel_2D(
     int B, int C,
-    torch::PackedTensorAccesor32<Dtype, 3> nu_composite,
-    torch::PackedTensorAccesor32<Dtype, 4> nu_basic,
-    torch::PackedTensorAccesor32<Dtype, 2> left_in_composite,
-    torch::PackedTensorAccesor32<Dtype, 2> left_in_basic,
-    torch::PackedTensorAccesor32<Dtype, 2> width_basic,
-    torch::PackedTensorAccesor32<Dtype, 2> bottom_in_composite,
-    torch::PackedTensorAccesor32<Dtype, 2> bottom_in_basic,
-    torch::PackedTensorAccesor32<Dtype, 2> height_basic
+    torch::PackedTensorAccessor32<Dtype, 3> nu_composite,
+    torch::PackedTensorAccessor32<Dtype, 4> nu_basic,
+    torch::PackedTensorAccessor32<Dtype, 2> left_in_composite,
+    torch::PackedTensorAccessor32<Dtype, 2> left_in_basic,
+    torch::PackedTensorAccessor32<Dtype, 2> width_basic,
+    torch::PackedTensorAccessor32<Dtype, 2> bottom_in_composite,
+    torch::PackedTensorAccessor32<Dtype, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<Dtype, 2> height_basic
 ) 
 {
     int blockSize = 256;
@@ -158,24 +158,24 @@ void BasicToCompositeKernel_2D(
 // Instantiate
 template void BasicToCompositeKernel_2D<float>(    
     int B, int C,
-    torch::PackedTensorAccesor32<float, 3> nu_composite,
-    torch::PackedTensorAccesor32<float, 4> nu_basic,
-    torch::PackedTensorAccesor32<float, 2> left_in_composite,
-    torch::PackedTensorAccesor32<float, 2> left_in_basic,
-    torch::PackedTensorAccesor32<float, 2> width_basic,
-    torch::PackedTensorAccesor32<float, 2> bottom_in_composite,
-    torch::PackedTensorAccesor32<float, 2> bottom_in_basic,
-    torch::PackedTensorAccesor32<float, 2> height_basic
+    torch::PackedTensorAccessor32<float, 3> nu_composite,
+    torch::PackedTensorAccessor32<float, 4> nu_basic,
+    torch::PackedTensorAccessor32<float, 2> left_in_composite,
+    torch::PackedTensorAccessor32<float, 2> left_in_basic,
+    torch::PackedTensorAccessor32<float, 2> width_basic,
+    torch::PackedTensorAccessor32<float, 2> bottom_in_composite,
+    torch::PackedTensorAccessor32<float, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<float, 2> height_basic
 );
 
 template void BasicToCompositeKernel_2D<double>(    
     int B, int C,
-    torch::PackedTensorAccesor32<double, 3> nu_composite,
-    torch::PackedTensorAccesor32<double, 4> nu_basic,
-    torch::PackedTensorAccesor32<double, 2> left_in_composite,
-    torch::PackedTensorAccesor32<double, 2> left_in_basic,
-    torch::PackedTensorAccesor32<double, 2> width_basic,
-    torch::PackedTensorAccesor32<double, 2> bottom_in_composite,
-    torch::PackedTensorAccesor32<double, 2> bottom_in_basic,
-    torch::PackedTensorAccesor32<double, 2> height_basic
+    torch::PackedTensorAccessor32<double, 3> nu_composite,
+    torch::PackedTensorAccessor32<double, 4> nu_basic,
+    torch::PackedTensorAccessor32<double, 2> left_in_composite,
+    torch::PackedTensorAccessor32<double, 2> left_in_basic,
+    torch::PackedTensorAccessor32<double, 2> width_basic,
+    torch::PackedTensorAccessor32<double, 2> bottom_in_composite,
+    torch::PackedTensorAccessor32<double, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<double, 2> height_basic
 );

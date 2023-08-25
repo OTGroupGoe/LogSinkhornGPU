@@ -58,13 +58,13 @@ torch::Tensor BasicToCompositeCUDA_2D(
   BasicToCompositeKernel_2D(
       B, C, 
       nu_composite.packed_accessor32<Dtype,3>(),
-      nu_basic.packed_accessor32<Dtype,4>(), 
-      left_in_composite.packed_accessor32<Dtype,2>(), 
-      left_in_basic.packed_accessor32<Dtype,2>(), 
-      width_basic.packed_accessor32<Dtype,2>(), 
-      bottom_in_composite.packed_accessor32<Dtype,2>(), 
-      bottom_in_basic.packed_accessor32<Dtype,2>(), 
-      height_basic.packed_accessor32<Dtype,2>() 
+      nu_basic.packed_accessor32<Dtype, 4>(), 
+      left_in_composite.packed_accessor32<Dtype, 2>(), 
+      left_in_basic.packed_accessor32<Dtype, 2>(), 
+      width_basic.packed_accessor32<Dtype, 2>(), 
+      bottom_in_composite.packed_accessor32<Dtype, 2>(), 
+      bottom_in_basic.packed_accessor32<Dtype, 2>(), 
+      height_basic.packed_accessor32<Dtype, 2>() 
   );
   return nu_composite;
 }

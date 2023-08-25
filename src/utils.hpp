@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <torch/extension.h>
 
 class Formatter {
 public:

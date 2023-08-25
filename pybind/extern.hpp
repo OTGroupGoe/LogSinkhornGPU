@@ -13,4 +13,4 @@ at::Tensor BasicToCompositeCUDA_2D(
   at::Tensor width_basic, 
   at::Tensor bottom_in_composite, at::Tensor bottom_in_basic,
   at::Tensor height_basic
-)
+);

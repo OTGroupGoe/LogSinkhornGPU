@@ -182,7 +182,7 @@ void add_with_offsets_2D(
     int B, int C,
     torch::PackedTensorAccessor32<Dtype, 3> nu_composite,
     torch::PackedTensorAccessor32<Dtype, 3> nu_basic,
-    torch::PackedTensorAccessor32<Dtype, 3> weights,
+    torch::PackedTensorAccessor32<Dtype, 2> weights,
     torch::PackedTensorAccessor32<int, 2> sum_indices,
     torch::PackedTensorAccessor32<int, 2> left_in_composite,
     torch::PackedTensorAccessor32<int, 2> left_in_basic,

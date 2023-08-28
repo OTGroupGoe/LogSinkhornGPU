@@ -25,8 +25,8 @@ void AddWithOffsetsKernel_2D(
     torch::PackedTensorAccessor32<Dtype, 2> weights,
     torch::PackedTensorAccessor32<int, 2> sum_indices,
     torch::PackedTensorAccessor32<int, 2> left_in_composite,
-    torch::PackedTensorAccessor32<int, 2> left_in_basic,
-    torch::PackedTensorAccessor32<int, 2> width_basic,
+    torch::PackedTensorAccessor32<int, 1> left_in_basic,
+    torch::PackedTensorAccessor32<int, 1> width_basic,
     torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
-    torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
-    torch::PackedTensorAccessor32<int, 2> height_basic);
+    torch::PackedTensorAccessor32<int, 1> bottom_in_basic,
+    torch::PackedTensorAccessor32<int, 1> height_basic);

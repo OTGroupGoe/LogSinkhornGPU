@@ -1,7 +1,8 @@
 import torch
 
 from LogSinkhornGPUBackend import BalanceCUDA_32, BalanceCUDA_64, \
-    BasicToCompositeCUDA_2D_32, BasicToCompositeCUDA_2D_64
+    BasicToCompositeCUDA_2D_32, BasicToCompositeCUDA_2D_64, \
+    AddWithOffsetsCUDA_2D_32, AddWithOffsetsCUDA_2D_64
 
 def log_dens(a):
     """
@@ -53,5 +54,25 @@ def BasicToCompositeCUDA_2D(
             "BalanceCUDA only implemented for float and double"
         )
     return f(nu_basic, w, h, 
+        left_in_composite, left_in_basic, width_basic,
+        bottom_in_composite, bottom_in_basic, height_basic)
+
+
+def AddWithOffsetsCUDA_2D(
+    nu_basic, w, h, 
+    weights, sum_indices,
+    left_in_composite, left_in_basic, width_basic,
+    bottom_in_composite, bottom_in_basic, height_basic
+):
+    if nu_basic.dtype == torch.float32:
+        f = BasicToCompositeCUDA_2D_32
+    elif nu_basic.dtype == torch.float64:
+        f = BasicToCompositeCUDA_2D_64
+    else: 
+        raise NotImplementedError(
+            "BalanceCUDA only implemented for float and double"
+        )
+    return f(nu_basic, w, h, 
+        weights, sum_indices,
         left_in_composite, left_in_basic, width_basic,
         bottom_in_composite, bottom_in_basic, height_basic)

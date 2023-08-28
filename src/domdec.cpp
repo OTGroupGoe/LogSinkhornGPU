@@ -110,11 +110,11 @@ torch::Tensor AddWithOffsetsCUDA_2D(
       weights.packed_accessor32<Dtype, 2>(),
       sum_indices.packed_accessor32<int, 2>(),
       left_in_composite.packed_accessor32<int, 2>(),
-      left_in_basic.packed_accessor32<int, 2>(),
-      width_basic.packed_accessor32<int, 2>(),
+      left_in_basic.packed_accessor32<int, 1>(),
+      width_basic.packed_accessor32<int, 1>(),
       bottom_in_composite.packed_accessor32<int, 2>(),
-      bottom_in_basic.packed_accessor32<int, 2>(),
-      height_basic.packed_accessor32<int, 2>()
+      bottom_in_basic.packed_accessor32<int, 1>(),
+      height_basic.packed_accessor32<int, 1>()
   );
   return nu_composite;
 }

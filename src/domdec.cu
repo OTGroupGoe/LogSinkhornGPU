@@ -178,7 +178,7 @@ template void BasicToCompositeKernel_2D<double>(
 ////////////////////////////////////////////////////////
 
 template <typename Dtype>
-void add_with_offsets_2D(
+__global__ void add_with_offsets_2D(
     int B, int C,
     torch::PackedTensorAccessor32<Dtype, 3> nu_composite,
     torch::PackedTensorAccessor32<Dtype, 3> nu_basic,
@@ -189,7 +189,8 @@ void add_with_offsets_2D(
     torch::PackedTensorAccessor32<int, 2> width_basic,
     torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
     torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
-    torch::PackedTensorAccessor32<int, 2> height_basic)
+    torch::PackedTensorAccessor32<int, 2> height_basic
+)
 {
     int j = blockIdx.x * blockDim.x + threadIdx.x; // index of comp cell
     if (j >= B)                                    // take care of indices bigger than size

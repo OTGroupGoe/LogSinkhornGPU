@@ -32,4 +32,4 @@ void AddWithOffsetsKernel_2D(
     torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
     torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
     torch::PackedTensorAccessor32<int, 2> height_basic
-) 
+);

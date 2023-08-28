@@ -23,4 +23,4 @@ torch::Tensor AddWithOffsetsCUDA_2D(
   torch::Tensor width_basic, 
   torch::Tensor bottom_in_composite, torch::Tensor bottom_in_basic,
   torch::Tensor height_basic
-)
+);

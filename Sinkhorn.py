@@ -1,5 +1,4 @@
 import torch
-from pykeops.torch import LazyTensor
 from LogSinkhornGPUBackend import LogSumExpCUDA_32, LogSumExpCUDA_64
 import math
 
@@ -71,6 +70,8 @@ def softmin_keops(h, x, y, eps):
     variable j. 
     Inspired by `geomloss`.
     """
+
+    from pykeops.torch import LazyTensor
     B = batch_dim(h)
     xi = LazyTensor(x[:, :, None, :])
     yj = LazyTensor(y[:, None, :, :])
@@ -85,6 +86,7 @@ def softmin_keops_line(h, x, y, eps):
     variable j. `x` and `y` are unidimensional vectors. 
     Inspired by `geomloss`.
     """
+    from pykeops.torch import LazyTensor
     B = batch_dim(h)
     # If we remove the last dimension keops freaks out
     xi = LazyTensor(x.view(1, -1, 1, 1))

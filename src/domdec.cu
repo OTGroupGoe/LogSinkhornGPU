@@ -181,3 +181,108 @@ template void BasicToCompositeKernel_2D<double>(
     torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
     torch::PackedTensorAccessor32<int, 2> height_basic
 );
+
+////////////////////////////////////////////////////////
+// Generalization of basic-to-composite: add with offset
+////////////////////////////////////////////////////////
+
+template <typename Dtype>
+void add_with_offsets_2D(
+    int B, int C,
+    torch::PackedTensorAccessor32<Dtype, 3> nu_composite,
+    torch::PackedTensorAccessor32<Dtype, 3> nu_basic,
+    torch::PackedTensorAccessor32<Dtype, 3> weights,
+    torch::PackedTensorAccessor32<int, 2> sum_indices,
+    torch::PackedTensorAccessor32<int, 2> left_in_composite,
+    torch::PackedTensorAccessor32<int, 2> left_in_basic,
+    torch::PackedTensorAccessor32<int, 2> width_basic,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<int, 2> height_basic
+) 
+{
+    int j = blockIdx.x * blockDim.x + threadIdx.x; // index of comp cell
+    if (j >= B)  // take care of indices bigger than size
+        return;
+    Dtype u;
+    int i, lc, lb, bc, bb, w, h;
+    for (int k = 0; k < C; k++) // index of basic cell
+    {
+        i = sum_indices[j][k]
+        if (i >= 0) // negative index means do nothing
+        {
+            u = weights[j][k];
+            lc = left_in_composite[j][k];
+            lb = left_in_basic[j][k];
+            bc = bottom_in_composite[j][k];
+            bb = bottom_in_basic[j][k];
+            w = width_basic[j][k];
+            h = height_basic[j][k];
+            // Fill box
+            for (int x = 0; x < w; x++)
+            {
+                for (int y = 0; y < h; y++)
+                {
+                    nu_composite[j][lc+x][bc+y] += u*nu_basic[i][lb+x][bb+y];
+                }
+            }
+        }
+    }
+}
+
+template <typename Dtype>
+void AddWithOffsetsKernel_2D(
+    int B, int C,
+    torch::PackedTensorAccessor32<Dtype, 3> nu_composite,
+    torch::PackedTensorAccessor32<Dtype, 3> nu_basic,
+    torch::PackedTensorAccessor32<Dtype, 2> weights,
+    torch::PackedTensorAccessor32<int, 2> sum_indices,
+    torch::PackedTensorAccessor32<int, 2> left_in_composite,
+    torch::PackedTensorAccessor32<int, 2> left_in_basic,
+    torch::PackedTensorAccessor32<int, 2> width_basic,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<int, 2> height_basic
+) 
+{
+    int blockSize = 256;
+    int numBlocks = (B + blockSize - 1) / blockSize;
+    basic_to_composite_2D<Dtype><<<numBlocks, blockSize>>>(
+        B, C, nu_composite, nu_basic, weights, sum_indices,
+        left_in_composite, left_in_basic, width_basic,
+        bottom_in_composite, bottom_in_basic, height_basic 
+    );
+    cudaError_t err = cudaGetLastError();
+    if (cudaSuccess != err)
+        throw std::runtime_error(Formatter()
+                                 << "CUDA kernel failed : " << std::to_string(err));
+}
+
+// Instantiate
+template void AddWithOffsetsKernel_2D<float>(    
+    int B, int C,
+    torch::PackedTensorAccessor32<float, 3> nu_composite,
+    torch::PackedTensorAccessor32<float, 3> nu_basic,
+    torch::PackedTensorAccessor32<float, 2> weights,
+    torch::PackedTensorAccessor32<int, 2> sum_indices,
+    torch::PackedTensorAccessor32<int, 2> left_in_composite,
+    torch::PackedTensorAccessor32<int, 2> left_in_basic,
+    torch::PackedTensorAccessor32<int, 2> width_basic,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<int, 2> height_basic
+);
+
+template void AddWithOffsetsKernel_2D<double>(    
+    int B, int C,
+    torch::PackedTensorAccessor32<double, 3> nu_composite,
+    torch::PackedTensorAccessor32<double, 3> nu_basic,
+    torch::PackedTensorAccessor32<double, 2> weights,
+    torch::PackedTensorAccessor32<int, 2> sum_indices,
+    torch::PackedTensorAccessor32<int, 2> left_in_composite,
+    torch::PackedTensorAccessor32<int, 2> left_in_basic,
+    torch::PackedTensorAccessor32<int, 2> width_basic,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<int, 2> height_basic
+);

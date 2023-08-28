@@ -18,3 +18,18 @@ void BasicToCompositeKernel_2D(
     torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
     torch::PackedTensorAccessor32<int, 2> height_basic
 );
+
+template <typename Dtype>
+void AddWithOffsets_2D(
+    int B, int C,
+    torch::PackedTensorAccessor32<Dtype, 3> nu_composite,
+    torch::PackedTensorAccessor32<Dtype, 3> nu_basic,
+    torch::PackedTensorAccessor32<Dtype, 3> weights,
+    torch::PackedTensorAccessor32<int, 2> sum_indices,
+    torch::PackedTensorAccessor32<int, 2> left_in_composite,
+    torch::PackedTensorAccessor32<int, 2> left_in_basic,
+    torch::PackedTensorAccessor32<int, 2> width_basic,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
+    torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<int, 2> height_basic
+) 

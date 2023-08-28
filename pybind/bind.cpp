@@ -15,5 +15,9 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m){
         "BasicToCompositeCUDA_2D (float)"); 
   m.def("BasicToCompositeCUDA_2D_64", &BasicToCompositeCUDA_2D<double>, 
         "BalanceBasicToCompositeCUDA_2D (double)"); 
+  m.def("AddWithOffsetsCUDA_32", &AddWithOffsetsCUDA<float>, 
+        "AddWithOffsetsCUDA (float)"); 
+  m.def("AddWithOffsetsCUDA_64", &AddWithOffsetsCUDA<double>, 
+        "BalanceAddWithOffsetsCUDA (double)"); 
   //m.def("LogSumExpGPU_accesor", &LogSumExpGPU_accesor);
 }

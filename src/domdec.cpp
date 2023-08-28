@@ -86,3 +86,65 @@ template torch::Tensor BasicToCompositeCUDA_2D<double>(
   torch::Tensor bottom_in_composite, torch::Tensor bottom_in_basic,
   torch::Tensor height_basic
 );
+
+
+/////////////////////
+// add with offsets
+/////////////////////
+
+template <typename Dtype>
+torch::Tensor AddWithOffsetsCUDA_2D(
+  torch::Tensor nu_basic, int w, int h,
+  torch::Tensor weights, torch::Tensor sum_indices,
+  torch::Tensor left_in_composite, torch::Tensor left_in_basic,
+  torch::Tensor width_basic, 
+  torch::Tensor bottom_in_composite, torch::Tensor bottom_in_basic,
+  torch::Tensor height_basic
+)
+{
+  int B = sum_indices.size(0); 
+  int C = sum_indices.size(1);
+
+  // init composite tensor
+  auto options = torch::TensorOptions() 
+          .dtype(TensorTypeSelector<Dtype>::type)
+          .device(nu_basic.device());
+  torch::Tensor nu_composite = torch::zeros({B, w, h}, options);
+
+  // Pass accesors
+  AddWithOffsetsKernel_2D(
+      B, C, 
+      nu_composite.packed_accessor32<Dtype,3>(),
+      nu_basic.packed_accessor32<Dtype, 3>(), 
+      weights.packed_accessor32<Dtype, 2>(), 
+      sum_indices.packed_accessor32<int, 2>(), 
+      left_in_composite.packed_accessor32<int, 2>(), 
+      left_in_basic.packed_accessor32<int, 2>(), 
+      width_basic.packed_accessor32<int, 2>(), 
+      bottom_in_composite.packed_accessor32<int, 2>(), 
+      bottom_in_basic.packed_accessor32<int, 2>(), 
+      height_basic.packed_accessor32<int, 2>() 
+  );
+  return nu_composite;
+}
+
+// Instantiate
+
+template torch::Tensor AddWithOffsetsCUDA_2D<float>(
+  torch::Tensor nu_basic, int w, int h,
+  torch::Tensor weights, torch::Tensor sum_indices,
+  torch::Tensor left_in_composite, torch::Tensor left_in_basic,
+  torch::Tensor width_basic, 
+  torch::Tensor bottom_in_composite, torch::Tensor bottom_in_basic,
+  torch::Tensor height_basic
+);
+
+template torch::Tensor AddWithOffsetsCUDA_2D<double>(
+  torch::Tensor nu_basic, int w, int h,
+  torch::Tensor weights, torch::Tensor sum_indices,
+  torch::Tensor left_in_composite, torch::Tensor left_in_basic,
+  torch::Tensor width_basic, 
+  torch::Tensor bottom_in_composite, torch::Tensor bottom_in_basic,
+  torch::Tensor height_basic
+);
+

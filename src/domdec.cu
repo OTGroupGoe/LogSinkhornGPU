@@ -198,7 +198,8 @@ void add_with_offsets_2D(
     int i, lc, lb, bc, bb, w, h;
     for (int k = 0; k < C; k++) // index of basic cell
     {
-        i = sum_indices[j][k] if (i >= 0) // negative index means do nothing
+        i = sum_indices[j][k];
+        if (i >= 0) // negative index means do nothing
         {
             u = weights[j][k];
             lc = left_in_composite[j][k];

@@ -3,6 +3,31 @@ import torch
 from LogSinkhornGPUBackend import BalanceCUDA_32, BalanceCUDA_64, \
     BasicToCompositeCUDA_2D_32, BasicToCompositeCUDA_2D_64
 
+def log_dens(a):
+    """
+    Log of `a`, thresholded at the negative infinities. Taken from `geomloss`.
+    """
+    a_log = a.log()
+    a_log[a <= 0] = -10000.0
+    return a_log
+
+
+def batch_dim(a):
+    """
+    Batch dimension of tensor.
+    """
+    return a.shape[0]
+
+
+def geom_dims(a):
+    """
+    Dimensions folowing the batch dimension.
+    """
+    return a.shape[1:]
+
+# DomDec functions
+
+
 def BalanceCUDA(nu_basic, mass_delta, thresh_step):
     if nu_basic.dtype == torch.float32:
         f = BalanceCUDA_32

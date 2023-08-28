@@ -20,7 +20,7 @@ void BasicToCompositeKernel_2D(
 );
 
 template <typename Dtype>
-void AddWithOffsets_2D(
+void AddWithOffsetsKernel_2D(
     int B, int C,
     torch::PackedTensorAccessor32<Dtype, 3> nu_composite,
     torch::PackedTensorAccessor32<Dtype, 3> nu_basic,

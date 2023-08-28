@@ -247,7 +247,7 @@ void AddWithOffsetsKernel_2D(
 {
     int blockSize = 256;
     int numBlocks = (B + blockSize - 1) / blockSize;
-    basic_to_composite_2D<Dtype><<<numBlocks, blockSize>>>(
+    add_with_offsets_2D<Dtype><<<numBlocks, blockSize>>>(
         B, C, nu_composite, nu_basic, weights, sum_indices,
         left_in_composite, left_in_basic, width_basic,
         bottom_in_composite, bottom_in_basic, height_basic 

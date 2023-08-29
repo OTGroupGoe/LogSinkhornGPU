@@ -185,11 +185,11 @@ __global__ void add_with_offsets_2D(
     torch::PackedTensorAccessor32<Dtype, 2> weights,
     torch::PackedTensorAccessor32<int, 2> sum_indices,
     torch::PackedTensorAccessor32<int, 2> left_in_composite,
-    torch::PackedTensorAccessor32<int, 1> left_in_basic,
-    torch::PackedTensorAccessor32<int, 1> width_basic,
+    torch::PackedTensorAccessor32<int, 2> left_in_basic,
+    torch::PackedTensorAccessor32<int, 2> width_basic,
     torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
-    torch::PackedTensorAccessor32<int, 1> bottom_in_basic,
-    torch::PackedTensorAccessor32<int, 1> height_basic
+    torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<int, 2> height_basic
 )
 {
     int j = blockIdx.x * blockDim.x + threadIdx.x; // index of comp cell
@@ -202,16 +202,15 @@ __global__ void add_with_offsets_2D(
         i = sum_indices[j][k];
         if (i >= 0) // negative index means do nothing
         {
-            // ***_in_composite are relative positions to the commond bbox, 
-            // so they must have two indices. ****_basic are characteristic
-            // from basic cell
+            // ***_in_composite and ***_basic are relative positions that we 
+            // want to copy.
             u = weights[j][k];
             lc = left_in_composite[j][k];
-            lb = left_in_basic[i];
-            w = width_basic[i];
+            lb = left_in_basic[j][k];
+            w = width_basic[j][k];
             bc = bottom_in_composite[j][k];
-            bb = bottom_in_basic[i];
-            h = height_basic[i];
+            bb = bottom_in_basic[j][k];
+            h = height_basic[j][k];
             // Fill box
             for (int x = 0; x < w; x++)
             {
@@ -232,11 +231,11 @@ void AddWithOffsetsKernel_2D(
     torch::PackedTensorAccessor32<Dtype, 2> weights,
     torch::PackedTensorAccessor32<int, 2> sum_indices,
     torch::PackedTensorAccessor32<int, 2> left_in_composite,
-    torch::PackedTensorAccessor32<int, 1> left_in_basic,
-    torch::PackedTensorAccessor32<int, 1> width_basic,
+    torch::PackedTensorAccessor32<int, 2> left_in_basic,
+    torch::PackedTensorAccessor32<int, 2> width_basic,
     torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
-    torch::PackedTensorAccessor32<int, 1> bottom_in_basic,
-    torch::PackedTensorAccessor32<int, 1> height_basic)
+    torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<int, 2> height_basic)
 {
     int blockSize = 256;
     int numBlocks = (B + blockSize - 1) / blockSize;
@@ -258,11 +257,11 @@ template void AddWithOffsetsKernel_2D<float>(
     torch::PackedTensorAccessor32<float, 2> weights,
     torch::PackedTensorAccessor32<int, 2> sum_indices,
     torch::PackedTensorAccessor32<int, 2> left_in_composite,
-    torch::PackedTensorAccessor32<int, 1> left_in_basic,
-    torch::PackedTensorAccessor32<int, 1> width_basic,
+    torch::PackedTensorAccessor32<int, 2> left_in_basic,
+    torch::PackedTensorAccessor32<int, 2> width_basic,
     torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
-    torch::PackedTensorAccessor32<int, 1> bottom_in_basic,
-    torch::PackedTensorAccessor32<int, 1> height_basic);
+    torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<int, 2> height_basic);
 
 template void AddWithOffsetsKernel_2D<double>(
     int B, int C,
@@ -271,8 +270,8 @@ template void AddWithOffsetsKernel_2D<double>(
     torch::PackedTensorAccessor32<double, 2> weights,
     torch::PackedTensorAccessor32<int, 2> sum_indices,
     torch::PackedTensorAccessor32<int, 2> left_in_composite,
-    torch::PackedTensorAccessor32<int, 1> left_in_basic,
-    torch::PackedTensorAccessor32<int, 1> width_basic,
+    torch::PackedTensorAccessor32<int, 2> left_in_basic,
+    torch::PackedTensorAccessor32<int, 2> width_basic,
     torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
-    torch::PackedTensorAccessor32<int, 1> bottom_in_basic,
-    torch::PackedTensorAccessor32<int, 1> height_basic);
+    torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
+    torch::PackedTensorAccessor32<int, 2> height_basic);

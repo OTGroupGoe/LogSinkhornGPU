@@ -65,9 +65,9 @@ def AddWithOffsetsCUDA_2D(
     bottom_in_composite, bottom_in_basic, height_basic
 ):
     if nu_basic.dtype == torch.float32:
-        f = BasicToCompositeCUDA_2D_32
+        f = AddWithOffsetsCUDA_2D_32
     elif nu_basic.dtype == torch.float64:
-        f = BasicToCompositeCUDA_2D_64
+        f = AddWithOffsetsCUDA_2D_64
     else: 
         raise NotImplementedError(
             "BalanceCUDA only implemented for float and double"

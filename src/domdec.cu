@@ -21,42 +21,51 @@ __global__ void balance(
     if (b >= B)                                    // take care of bigger-than-size indices
         return;
     Dtype d1, d2, delta, eta, thresh, m;
+    int i, j, n, k, index_i, index_j, temp, index_ik, index_jk;
     // Loop over pairs of cells
-    for (int i = 0; i < C; i++)
+    for (i = 0; i < C; i++)
     {
-        // for (int j = i + 1; j < C; j++) // TODO: try upper triangular
-        for (int j = 0; j < C; j++)
+        // for (j = i + 1; j < C; j++) // TODO: try upper triangular
+        for (j = i+1; j < C; j++)
         {
             // Compute linear index corresponding to (b, i), (b,j)
-            int index_i = b * C + i;
-            int index_j = b * C + j;
+            index_i = b * C + i;
+            index_j = b * C + j;
             // Get pairwise delta, mass to be transported from i to j
             d1 = mass_delta[index_i];
             d2 = mass_delta[index_j];
-            delta = min(max(d1, 0.0), max(-d2, 0.0)); 
-            // transfer if d1 > 0 and d2 < 0, otherwise see you at transpose
-            eta = delta;
-            // first try to only transfer mass, where nu2 is already > 0
-            thresh = 1E-12;
-            for (int n = 0; n < 2; n++)
+            delta = min(max(d1, 0.0), max(-d2, 0.0)) - min(max(-d1, 0.0), max(d2, 0.0));
+            if (delta < 0)
             {
-                for (int k = 0; k < N; k++)
+                delta = -delta; 
+                temp = index_j;
+                index_j = index_i; 
+                index_i = temp;
+            }
+            if (delta > thresh_step) // if negative see you at the transpose index
+            {
+                eta = delta;
+                // first try to only transfer mass, where nu2 is already > 0
+                thresh = 1E-12;
+                for (n = 0; n < 2; n++)
                 {
-                    int index_ik = index_i * N + k;
-                    int index_jk = index_j * N + k;
-                    // Check if there is already mass at index_jk
-                    if (nu_basic[index_jk] >= thresh)
+                    for (k = 0; k < N; k++)
                     {
-                        // compute mass to be transferred
-                        m = min(eta, nu_basic[index_ik]);
-                        nu_basic[index_jk] += m;
-                        nu_basic[index_ik] -= m;
-                        eta -= m;
+                        index_ik = index_i * N + k;
+                        index_jk = index_j * N + k;
+                        if ((nu_basic[index_ik] > 0.) && (nu_basic[index_jk] >= thresh))
+                        {
+                            // compute mass to be transferred
+                            m = min(eta, nu_basic[index_ik]);
+                            nu_basic[index_jk] += m;
+                            nu_basic[index_ik] -= m;
+                            eta -= m;
+                        }
                     }
+                    // if fist loop was not  sufficient, set thresh to 0
+                    if (eta > thresh_step)
+                        thresh = 0;
                 }
-                // if fist loop was not  sufficient, set thresh to 0
-                if (eta > thresh_step)
-                    thresh = 0;
                 // Update the deltas
                 delta -= eta; // There may be some rounding errors (?)
                 mass_delta[index_i] -= delta;

@@ -33,31 +33,30 @@ __global__ void balance(
             // Get pairwise delta, mass to be transported from i to j
             d1 = mass_delta[index_i];
             d2 = mass_delta[index_j];
-            delta = min(max(d1, 0.0), max(-d2, 0.0)) - min(max(-d1, 0.0), max(d2, 0.0));
-            if (delta > thresh_step) // if negative see you at the transpose index
+            delta = min(max(d1, 0.0), max(-d2, 0.0)); 
+            // transfer if d1 > 0 and d2 < 0, otherwise see you at transpose
+            eta = delta;
+            // first try to only transfer mass, where nu2 is already > 0
+            thresh = 1E-12;
+            for (int n = 0; n < 2; n++)
             {
-                eta = delta;
-                // first try to only transfer mass, where nu2 is already > 0
-                thresh = 1E-12;
-                for (int n = 0; n < 2; n++)
+                for (int k = 0; k < N; k++)
                 {
-                    for (int k = 0; k < N; k++)
+                    int index_ik = index_i * N + k;
+                    int index_jk = index_j * N + k;
+                    // Check if there is already mass at index_jk
+                    if (nu_basic[index_jk] >= thresh)
                     {
-                        int index_ik = index_i * N + k;
-                        int index_jk = index_j * N + k;
-                        if ((nu_basic[index_ik] > 0.) && (nu_basic[index_jk] >= thresh))
-                        {
-                            // compute mass to be transferred
-                            m = min(eta, nu_basic[index_ik]);
-                            nu_basic[index_jk] += m;
-                            nu_basic[index_ik] -= m;
-                            eta -= m;
-                        }
+                        // compute mass to be transferred
+                        m = min(eta, nu_basic[index_ik]);
+                        nu_basic[index_jk] += m;
+                        nu_basic[index_ik] -= m;
+                        eta -= m;
                     }
-                    // if fist loop was not  sufficient, set thresh to 0
-                    if (eta > thresh_step)
-                        thresh = 0;
                 }
+                // if fist loop was not  sufficient, set thresh to 0
+                if (eta > thresh_step)
+                    thresh = 0;
                 // Update the deltas
                 delta -= eta; // There may be some rounding errors (?)
                 mass_delta[index_i] -= delta;

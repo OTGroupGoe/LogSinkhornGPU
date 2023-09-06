@@ -152,6 +152,7 @@ void BasicToCompositeKernel_2D(
         B, C, nu_composite, nu_basic,
         left_in_composite, left_in_basic, width_basic,
         bottom_in_composite, bottom_in_basic, height_basic);
+    cudaDeviceSynchronize();
     cudaError_t err = cudaGetLastError();
     if (cudaSuccess != err)
         throw std::runtime_error(Formatter()

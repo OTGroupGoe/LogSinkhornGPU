@@ -1,40 +1,18 @@
 import torch
-from pykeops.torch import LazyTensor
 from LogSinkhornGPUBackend import LogSumExpCUDA_32, LogSumExpCUDA_64
 import math
+from .Aux import log_dens, batch_dim, geom_dims
 
 def LogSumExpCUDA(alpha, M, dx):
     if alpha.dtype == torch.float32:
-        return LogSumExpCUDA_32(alpha, M, dx)
+        f = LogSumExpCUDA_32
     elif alpha.dtype == torch.float64:
-        return LogSumExpCUDA_64(alpha, M, dx)
+        f = LogSumExpCUDA_64
     else: 
         raise NotImplementedError(
             "LogSumExpCUDA implemented for float and double"
         )
-
-def log_dens(a):
-    """
-    Log of `a`, thresholded at the negative infinities. Taken from `geomloss`.
-    """
-    a_log = a.log()
-    a_log[a <= 0] = -10000.0
-    return a_log
-
-
-def batch_dim(a):
-    """
-    Batch dimension of tensor.
-    """
-    return a.shape[0]
-
-
-def geom_dims(a):
-    """
-    Dimensions folowing the batch dimension.
-    """
-    return a.shape[1:]
-
+    return f(alpha, M, dx)
 
 def softmin_torch(h, dim):
     """
@@ -62,55 +40,6 @@ def softmin_torch_image(h, C1, C2, eps):
     )  # (B, M2, M1, 1)
     h = h.permute((0, 2, 1, 3)).reshape(B, M1, M2).contiguous()  # (B, M1, M2)
     return h
-
-
-def softmin_keops(h, x, y, eps):
-    """
-    Compute the online logsumexp of hj - |xi-yj|^2/eps with respect to the 
-    variable j. 
-    Inspired by `geomloss`.
-    """
-    B = batch_dim(h)
-    xi = LazyTensor(x[:, :, None, :])
-    yj = LazyTensor(y[:, None, :, :])
-    Cij = ((xi - yj)**2).sum(-1)
-    hj = LazyTensor(h[:, None, :, None])
-    return (hj-Cij/eps).logsumexp(2).view(B, -1)
-
-
-def softmin_keops_line(h, x, y, eps):
-    """
-    Compute the online logsumexp of hj - |xi-yj|^2/eps with respect to the 
-    variable j. `x` and `y` are unidimensional vectors. 
-    Inspired by `geomloss`.
-    """
-    B = batch_dim(h)
-    # If we remove the last dimension keops freaks out
-    xi = LazyTensor(x.view(1, -1, 1, 1))
-    yj = LazyTensor(y.view(1, 1, -1, 1))
-    Cij = (xi - yj)**2
-    hj = LazyTensor(h.view(B, 1, -1, 1))
-    return (hj-Cij/eps).logsumexp(2).view(B, -1)
-
-
-def softmin_keops_image(h, xs, ys, eps):
-    """
-    Compute the online logsumexp of hj - |xi-yj|^2/eps with respect to the 
-    variable j, by performing "line" logsumexps. 
-    Inspired by `geomloss`.
-    """
-    B = batch_dim(h)
-    x1, x2 = xs
-    y1, y2 = ys
-    M1, M2, N1, N2 = len(x1), len(x2), len(y1), len(y2)
-    h = h.reshape(B*N1, 1, N2).contiguous()  # (B*N1, 1, N2)
-    h = softmin_keops_line(h, x2, y2, eps)  # (B*N1, M2)
-    h = h.reshape((B, N1, M2)).permute((0, 2, 1)).contiguous() \
-        .reshape((B*M2, 1, N1))  # (B*M2, 1, N1)
-    h = softmin_keops_line(h, x1, y1, eps)  # (B*M2, M1)
-    h = h.reshape((B, M2, M1)).permute((0, 2, 1)).contiguous()  # (B, M1, M2)
-    return h
-
 
 def softmin_cuda_image(h, Ms, Ns, eps, dx):
     """
@@ -443,8 +372,12 @@ class LogSinkhornKeops(AbstractSinkhorn):
         with same dimensions as mu
         Initialization for the first Sinkhorn potential
     """
-
     def __init__(self, mu, nu, C, eps, **kwargs):
+        try: 
+            from pykeops.torch import LazyTensor
+        except ImportError: 
+            raise ImportError("Must install keops")
+        from .Sinkhorn_keops import softmin_keops
         x, y = C
         # Check shapes
         assert len(x.shape) == 3, \
@@ -502,6 +435,11 @@ class LogSinkhornKeopsImage(AbstractSinkhorn):
     """
 
     def __init__(self, mu, nu, C, eps, **kwargs):
+        try: 
+            from pykeops.torch import LazyTensor
+        except ImportError: 
+            raise ImportError("Must install keops")
+        from .Sinkhorn_keops import softmin_keops_image
         super().__init__(mu, nu, C, eps, **kwargs)
 
     def get_new_alpha(self):

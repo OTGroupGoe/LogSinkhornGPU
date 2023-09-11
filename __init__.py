@@ -1,5 +1,6 @@
 import torch
 
-from LogSinkhornGPUBackend import LogSumExpCUDA_32, LogSumExpCUDA_64
+from LogSinkhornGPUBackend import *
 
 from .Sinkhorn import *
+from .Aux import *

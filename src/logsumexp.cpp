@@ -5,7 +5,24 @@
 #include "src/logsumexp.cuh"
 #include "src/utils.hpp"
 
-torch::Tensor LogSumExpCUDA(torch::Tensor alpha, int M, float dx) {
+////////////////////////////
+// logsumexp kernel
+////////////////////////////
+
+// Template struct to determine the appropriate tensor type based on the input 
+template <typename Dtype>
+struct TensorTypeSelector {
+    static const torch::ScalarType type = torch::kFloat32;
+};
+
+// Specialize template for doubles
+template <>
+struct TensorTypeSelector<double> {
+    static const torch::ScalarType type = torch::kFloat64;
+};
+
+template <typename Dtype>
+torch::Tensor LogSumExpCUDA(torch::Tensor alpha, int M, Dtype dx) {
     // Given alpha ~ (B, N), compute beta ~ (B, M) with entry (b, i) given by
     // log(sum_j exp(alpha_bj - c_ij))
     // where c_ij = (i*dx - j*dx)**2 is computed online
@@ -21,16 +38,28 @@ torch::Tensor LogSumExpCUDA(torch::Tensor alpha, int M, float dx) {
 
     // Init tensor of size (B, M)
     auto options = torch::TensorOptions()
-        .dtype(torch::kFloat32)
+        .dtype(TensorTypeSelector<Dtype>::type)
         .device(alpha.device());
     torch::Tensor beta = torch::empty({B, M}, options);    
 
     // Call cuda kernel
     LogSumExpCUDAKernel(
-        B, M, N, alpha.data_ptr<float>(), beta.data_ptr<float>(), dx
+        B, M, N, alpha.data_ptr<Dtype>(), beta.data_ptr<Dtype>(), dx
     );
     return beta;
 }
+
+// Instantiate
+template torch::Tensor LogSumExpCUDA<float>(
+  torch::Tensor alpha, int M, float dx
+);
+template torch::Tensor LogSumExpCUDA<double>(
+  torch::Tensor alpha, int M, double dx
+);
+
+//////////////////////////////////////////////////////////////////////
+// inner newton method kernel for unbalanced domdec with KL divergence
+//////////////////////////////////////////////////////////////////////
 
 torch::Tensor InnerNewtonCUDA(
     int n_iter, float tol, torch::Tensor t, float eps, float lam,
@@ -62,3 +91,4 @@ torch::Tensor InnerNewtonCUDA(
     );
     return t;
 }
+

@@ -1,8 +1,17 @@
 import torch
 from pykeops.torch import LazyTensor
-from LogSinkhornGPUBackend import LogSumExpCUDA
+from LogSinkhornGPUBackend import LogSumExpCUDA_32, LogSumExpCUDA_64
 import math
 
+def LogSumExpCUDA(alpha, M, dx):
+    if alpha.dtype == torch.float32:
+        return LogSumExpCUDA_32(alpha, M, dx)
+    elif alpha.dtype == torch.float64:
+        return LogSumExpCUDA_64(alpha, M, dx)
+    else: 
+        raise NotImplementedError(
+            "LogSumExpCUDA implemented for float and double"
+        )
 
 def log_dens(a):
     """
@@ -161,7 +170,7 @@ class AbstractSinkhorn:
         max_error_rel=False, get_beta=True, **kwargs
     ):
 
-        self.eps = torch.tensor(eps, dtype=torch.float32).item()
+        self.eps = torch.tensor(eps, dtype=mu.dtype).item()
         self.mu = mu
         self.nu = nu
         self.logmu = log_dens(self.mu)
@@ -260,13 +269,25 @@ class AbstractSinkhorn:
         return self.get_current_error()
 
     def iterate_until_max_error(self):
+        max_error = self.max_error
         if self.max_error_rel:
             max_error *= torch.sum(self.mu)
-        while (self.Niter < self.max_iter) and (self.current_error >= self.max_error):
+        while (self.Niter < self.max_iter) and (self.current_error >= max_error):
             self.current_error = self.iterate(self.inner_iter)
         status = 'converged' if self.current_error < self.max_error \
             else 'not converged'
         return status
+
+    def change_eps(self, new_eps):
+        """
+        Change the regularization strength and reset
+        error and iteration count
+        """
+        # NOTE: Careful, different implementations may need
+        # more steps for this
+        self.eps = new_eps
+        self.Niter = 0
+        self.current_error = self.max_error + 1.0   
 
 
 class LogSinkhornTorch(AbstractSinkhorn):

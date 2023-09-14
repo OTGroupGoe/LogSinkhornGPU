@@ -1,5 +1,5 @@
 import torch
-from LogSinkhornGPUBackend import LogSumExpCUDA_32, LogSumExpCUDA_64
+from LogSinkhornGPUBackend_accurate import LogSumExpCUDA_32, LogSumExpCUDA_64
 import math
 from .Aux import log_dens, batch_dim, geom_dims
 

@@ -6,14 +6,14 @@ os.system('make -j%d' % os.cpu_count())
 
 # Python interface
 setup(
-    name='LogSinkhornGPU',
+    name='LogSinkhornGPU_accurate',
     version='0.2.0',
     install_requires=['torch'],
     packages=['LogSinkhornGPU'],
     package_dir={'LogSinkhornGPU': './'},
     ext_modules=[
         CUDAExtension(
-            name='LogSinkhornGPUBackend',
+            name='LogSinkhornGPUBackend_accurate',
             include_dirs=['./'],
             sources=[
                 'pybind/bind.cpp',

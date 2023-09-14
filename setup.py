@@ -9,8 +9,8 @@ setup(
     name='LogSinkhornGPU_accurate',
     version='0.2.0',
     install_requires=['torch'],
-    packages=['LogSinkhornGPU'],
-    package_dir={'LogSinkhornGPU': './'},
+    packages=['LogSinkhornGPU_accurate'],
+    package_dir={'LogSinkhornGPU_accurate': './'},
     ext_modules=[
         CUDAExtension(
             name='LogSinkhornGPUBackend_accurate',

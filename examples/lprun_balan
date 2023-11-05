@@ -1,0 +1,16 @@
+Timer unit: 1e-09 s
+
+Total time: 10.4523 s
+File: /usr/users/nguyen45/.local/lib/python3.8/site-packages/LogSinkhornGPU/Sinkhorn.py
+Function: get_new_beta at line 261
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   261                                               def get_new_beta(self):
+   262     81463  885956770.0  10875.6      8.5          return - self.eps * (
+   263    162926 5711662478.0  35056.8     54.6              softmin_torch(
+   264    162926 3160027741.0  19395.5     30.2                  (self.alpha[:, :, None] - self.C) / self.eps
+   265     81463  653851938.0   8026.4      6.3                  + self.logmuref[:, :, None], dim=1
+   266                                                       )
+   267    162926   40794464.0    250.4      0.4              + self.lognuref - self.lognu
+   268                                                   )

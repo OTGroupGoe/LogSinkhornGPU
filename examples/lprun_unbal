@@ -1,0 +1,21 @@
+Timer unit: 1e-09 s
+
+Total time: 6.45907 s
+File: /scratch1/users/nguyen45/LogSinkhornGPU/examples/lp_sim_unbal.py
+Function: get_new_beta at line 40
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    40                                               def get_new_beta(self):
+    41     42466 2669966691.0  62873.0     41.3          logKTu = LogSinkhornGPU.softmin_torch(
+    42     84932 1665962482.0  19615.3     25.8              (self.alpha[:, :, None] - self.C) / self.eps
+    43     42466  336360400.0   7920.7      5.2              + self.logmuref[:, :, None], dim=1
+    44                                                   ) 
+    45     42466   64988635.0   1530.4      1.0          + self.lognuref
+    46     42466  463317119.0  10910.3      7.2          self.t = InnerNewtonCUDA(
+    47     42466   20952907.0    493.4      0.3              self.newton_iter, self.newton_tol, self.t, self.eps, self.lam, 
+    48     42466   10598477.0    249.6      0.2              self.lognu,  # TODO lognu or lognuref???
+    49                                                       # self.lognuref,
+    50     42466   10880617.0    256.2      0.2              self.lognu_nJ, logKTu
+    51                                                   )
+    52     42466 1216042460.0  28635.7     18.8          return -self.lam*self.t - self.eps*logKTu

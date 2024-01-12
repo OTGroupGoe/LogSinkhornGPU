@@ -105,7 +105,7 @@ void LogSumExpCUDAKernel_xyeps(
     // number of elements to process is size of beta, this is, B*M
     int blockSize = 256;
     int numBlocks = (B * M + blockSize - 1) / blockSize;
-    logsumexp<Dtype><<<numBlocks, blockSize>>>(B, M, N, alpha, beta, dx, dy, eps);
+    logsumexp_xyeps<Dtype><<<numBlocks, blockSize>>>(B, M, N, alpha, beta, dx, dy, eps);
     cudaDeviceSynchronize();
     cudaError_t err = cudaGetLastError();
     if (cudaSuccess != err)

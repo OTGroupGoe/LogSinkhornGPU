@@ -59,7 +59,7 @@ template torch::Tensor LogSumExpCUDA<double>(
 
 template <typename Dtype>
 torch::Tensor LogSumExpCUDA_xyeps(
-    torch::Tensor alpha, int M, Dtype dx, Dtype dx, Dtype dy, Dtype eps
+    torch::Tensor alpha, int M, Dtype dx, Dtype dy, Dtype eps
 ) {
     // Given alpha ~ (B, N), compute beta ~ (B, M) with entry (b, i) given by
     // log(sum_j exp(alpha_bj - c_ij))

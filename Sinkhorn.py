@@ -12,6 +12,18 @@ def LogSumExpCUDA(alpha, M, dx):
         raise NotImplementedError(
             "LogSumExpCUDA implemented for float and double"
         )
+    
+def LogSumExpCUDA_xyeps(alpha, M, dx, dy, eps):
+    if alpha.dtype == torch.float32:
+        return LogSumExpCUDA_xyeps_32(alpha, M, dx, dy, eps)
+    elif alpha.dtype == torch.float64:
+        return LogSumExpCUDA_xyeps_64(alpha, M, dx, dy, eps)
+    else: 
+        raise NotImplementedError(
+            "LogSumExpCUDA implemented for float and double"
+        )
+
+# TODO: retake here: code LogSumExpCUDA for x and y
 
 def log_dens(a):
     """
@@ -129,6 +141,25 @@ def softmin_cuda_image(h, Ms, Ns, eps, dx):
     h = h.reshape((B, N1, M2)).permute((0, 2, 1)).contiguous() \
         .reshape((B*M2, N1))    # (B*M2, N1)
     h = LogSumExpCUDA(h, M1, dx_eff)  # (B*M2, M1)
+    h = h.reshape((B, M2, M1)).permute((0, 2, 1)).contiguous()  # (B, M1, M2)
+    return h
+
+def softmin_cuda_image_xyeps(h, Ms, Ns, dx, dy, eps):
+    """
+    Compute the online logsumexp of hj - |xi - yj|^2/eps with respect to the 
+    variable j, by performing "line" logsumexps, where the variables xi and yj 
+    are in a 2D grid with spacing dx.
+    Dedicated CUDA implementation, faster than the KeOps version for Ms, 
+    Ns ≲ 1024.
+    """
+    B = batch_dim(h)
+    M1, M2 = Ms
+    N1, N2 = Ns
+    h = h.view(B*N1, N2).contiguous()  # (B*N1, N2)
+    h = LogSumExpCUDA_xyeps(h, M2, dx, dy, eps)  # (B*N1, M2)
+    h = h.reshape((B, N1, M2)).permute((0, 2, 1)).contiguous() \
+        .reshape((B*M2, N1))    # (B*M2, N1)
+    h = LogSumExpCUDA_xyeps(h, M1, dx, dy, eps)  # (B*M2, M1)
     h = h.reshape((B, M2, M1)).permute((0, 2, 1)).contiguous()  # (B, M1, M2)
     return h
 
@@ -576,5 +607,64 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         h = self.alpha / self.eps + self.logmu
         return - self.eps * (
             softmin_cuda_image(h, Ns, Ms, self.eps, dx)
+            + self.lognuref - self.lognu
+        )
+
+class LogSinkhornCudaImage_xyeps(AbstractSinkhorn):
+    """
+    Online Sinkhorn solver for standard OT on images with separable cost, custom CUDA implementation. 
+    Each Sinkhorn iteration has complexity N^(3/2), instead of the usual N^2. 
+    Inspired greatly on `geomloss`.
+
+    Attributes
+    ----------
+    mu : torch.Tensor of size (B, M1, M2)
+        First marginals
+    nu : torch.Tensor of size (B, N1, N2)
+        Second marginals 
+    C  : either float or tuple of the form ((x1, x2), (y1, y2))
+        Distance between pixels, or grid coordinates
+    eps : float
+        Regularization strength
+    muref : torch.Tensor 
+        with same dimensions as mu (except axis 0, which can have len = 1)
+        First reference measure for the Gibbs energy, 
+        i.e. K = muref \otimes nuref exp(-C/eps)
+    nuref : torch.Tensor 
+        with same dimensions as nu (except axis 0, which can have len = 1)
+        Second reference measure for the Gibbs energy, 
+        i.e. K = muref \otimes nuref exp(-C/eps)
+    alpha_init : torch.Tensor, or None
+        with same dimensions as mu
+        Initialization for the first Sinkhorn potential
+    """
+
+    def __init__(self, mu, nu, C, eps, **kwargs):
+        if isinstance(C, (int, float)):
+            dx = C
+        else:
+            xs, ys = C
+            # TODO: check that xs, ys have same dx
+            dx = xs[0][1] - xs[0][0]
+            dy = ys[0][1] - ys[0][0]
+        Ms = geom_dims(mu)
+        Ns = geom_dims(nu)
+        assert len(Ms) == len(Ns) == 2, "Shapes incompatible with images"
+        super().__init__(mu, nu, (dx, dy, Ms, Ns), eps, **kwargs)
+        # Softmin function assumes inputs of shape (N, dim)
+
+    def get_new_alpha(self):
+        dx, dy, Ms, Ns = self.C
+        h = self.beta / self.eps + self.lognu
+        return - self.eps * (
+            softmin_cuda_image_xyeps(h, Ms, Ns, dx, dy, self.eps)
+            + self.logmuref - self.logmu
+        )
+
+    def get_new_beta(self):
+        dx, dy, Ms, Ns = self.C
+        h = self.alpha / self.eps + self.logmu
+        return - self.eps * (
+            softmin_cuda_image_xyeps(h, Ns, Ms, dx, dy, self.eps)
             + self.lognuref - self.lognu
         )

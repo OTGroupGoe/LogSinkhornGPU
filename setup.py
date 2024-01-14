@@ -8,7 +8,7 @@ os.system('make -j%d' % os.cpu_count())
 setup(
     name='LogSinkhornGPU',
     version='0.2.0',
-    install_requires=['torch', 'pykeops'],
+    install_requires=['torch==1.13', 'pykeops'], # Torch 2.0 breaks for some reason
     packages=['LogSinkhornGPU'],
     package_dir={'LogSinkhornGPU': './'},
     ext_modules=[

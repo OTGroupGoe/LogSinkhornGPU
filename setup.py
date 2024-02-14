@@ -1,33 +1,24 @@
-import os
-from setuptools import setup
-from torch.utils.cpp_extension import CUDAExtension, BuildExtension
+from setuptools import setup, find_packages
+from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
-os.system('make -j%d' % os.cpu_count())
-
-# Python interface
 setup(
     name='LogSinkhornGPU',
-    version='0.2.0',
-    install_requires=['torch==1.13', 'pykeops'], # Torch 2.0 breaks for some reason
-    packages=['LogSinkhornGPU'],
-    package_dir={'LogSinkhornGPU': './'},
+    version='0.3.0',
+    install_requires=['torch', 'pykeops'],
+    packages=find_packages(),
     ext_modules=[
         CUDAExtension(
-            name='LogSinkhornGPUBackend',
-            include_dirs=['./'],
+            name='LogSinkhornGPU.backend',
             sources=[
-                'pybind/bind.cpp',
+                'LogSinkhornGPU/backend/logsumexp.cpp',
+                'LogSinkhornGPU/backend/logsumexp_kernel.cu'
             ],
-            libraries=['make_pytorch'],
-            library_dirs=['objs'],
-            # extra_compile_args=['-g']
-        )
+        ),
     ],
     cmdclass={'build_ext': BuildExtension},
     author='Ismael Medina',
     author_email='ismael.medina@cs.uni-goettingen.de',
     description='LogSinkhorn routines in the GPU',
     keywords='Optimal transport logsinkhorn GPU',
-    url='https://github.com/OTGroupGoe/LogSinkhornGPU',
-    zip_safe=False,
+    url='https://github.com/OTGroupGoe/LogSinkhornGPU'
 )

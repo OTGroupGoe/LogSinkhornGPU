@@ -1,168 +1,6 @@
 import torch
 from pykeops.torch import LazyTensor
-from LogSinkhornGPUBackend import LogSumExpCUDA_32, LogSumExpCUDA_64
-import math
-
-def LogSumExpCUDA(alpha, M, dx):
-    if alpha.dtype == torch.float32:
-        return LogSumExpCUDA_32(alpha, M, dx)
-    elif alpha.dtype == torch.float64:
-        return LogSumExpCUDA_64(alpha, M, dx)
-    else: 
-        raise NotImplementedError(
-            "LogSumExpCUDA implemented for float and double"
-        )
-    
-def LogSumExpCUDA_xyeps(alpha, M, dx, dy, eps):
-    if alpha.dtype == torch.float32:
-        return LogSumExpCUDA_xyeps_32(alpha, M, dx, dy, eps)
-    elif alpha.dtype == torch.float64:
-        return LogSumExpCUDA_xyeps_64(alpha, M, dx, dy, eps)
-    else: 
-        raise NotImplementedError(
-            "LogSumExpCUDA implemented for float and double"
-        )
-
-# TODO: retake here: code LogSumExpCUDA for x and y
-
-def log_dens(a):
-    """
-    Log of `a`, thresholded at the negative infinities. Taken from `geomloss`.
-    """
-    a_log = a.log()
-    a_log[a <= 0] = -10000.0
-    return a_log
-
-
-def batch_dim(a):
-    """
-    Batch dimension of tensor.
-    """
-    return a.shape[0]
-
-
-def geom_dims(a):
-    """
-    Dimensions folowing the batch dimension.
-    """
-    return a.shape[1:]
-
-
-def softmin_torch(h, dim):
-    """
-    Compute the logsumexp of `h` along the dimension `dim`.
-    """
-    return torch.logsumexp(h, dim=dim, keepdims=False)
-
-
-def softmin_torch_image(h, C1, C2, eps):
-    """
-    Compute the logsumexp of `h`, with respect to the cost `C1` along dimension
-    1, and `C2` along dimension 2.
-    """
-    B = batch_dim(h)
-    _, M1, N1 = C1.shape  # TODO: use geom_dims
-    _, M2, N2 = C2.shape
-    # h is assumed to be of shape (B, N1, N2)
-    h = h.view(B, N1, 1, N2).contiguous()  # (B, N1, 1, N2)
-    h = torch.logsumexp(
-        h - C2[:, None, :, :]/eps, dim=3, keepdims=True
-    )  # (B, N1, M2, 1)
-    h = h.permute((0, 2, 3, 1)).contiguous()  # (B, M2, 1, N1)
-    h = torch.logsumexp(
-        h - C1[:, None, :, :]/eps, dim=3, keepdims=True
-    )  # (B, M2, M1, 1)
-    h = h.permute((0, 2, 1, 3)).reshape(B, M1, M2).contiguous()  # (B, M1, M2)
-    return h
-
-
-def softmin_keops(h, x, y, eps):
-    """
-    Compute the online logsumexp of hj - |xi-yj|^2/eps with respect to the 
-    variable j. 
-    Inspired by `geomloss`.
-    """
-    B = batch_dim(h)
-    xi = LazyTensor(x[:, :, None, :])
-    yj = LazyTensor(y[:, None, :, :])
-    Cij = ((xi - yj)**2).sum(-1)
-    hj = LazyTensor(h[:, None, :, None])
-    return (hj-Cij/eps).logsumexp(2).view(B, -1)
-
-
-def softmin_keops_line(h, x, y, eps):
-    """
-    Compute the online logsumexp of hj - |xi-yj|^2/eps with respect to the 
-    variable j. `x` and `y` are unidimensional vectors. 
-    Inspired by `geomloss`.
-    """
-    B = batch_dim(h)
-    # If we remove the last dimension keops freaks out
-    xi = LazyTensor(x.view(1, -1, 1, 1))
-    yj = LazyTensor(y.view(1, 1, -1, 1))
-    Cij = (xi - yj)**2
-    hj = LazyTensor(h.view(B, 1, -1, 1))
-    return (hj-Cij/eps).logsumexp(2).view(B, -1)
-
-
-def softmin_keops_image(h, xs, ys, eps):
-    """
-    Compute the online logsumexp of hj - |xi-yj|^2/eps with respect to the 
-    variable j, by performing "line" logsumexps. 
-    Inspired by `geomloss`.
-    """
-    B = batch_dim(h)
-    x1, x2 = xs
-    y1, y2 = ys
-    M1, M2, N1, N2 = len(x1), len(x2), len(y1), len(y2)
-    h = h.reshape(B*N1, 1, N2).contiguous()  # (B*N1, 1, N2)
-    h = softmin_keops_line(h, x2, y2, eps)  # (B*N1, M2)
-    h = h.reshape((B, N1, M2)).permute((0, 2, 1)).contiguous() \
-        .reshape((B*M2, 1, N1))  # (B*M2, 1, N1)
-    h = softmin_keops_line(h, x1, y1, eps)  # (B*M2, M1)
-    h = h.reshape((B, M2, M1)).permute((0, 2, 1)).contiguous()  # (B, M1, M2)
-    return h
-
-
-def softmin_cuda_image(h, Ms, Ns, eps, dx):
-    """
-    Compute the online logsumexp of hj - |xi - yj|^2/eps with respect to the 
-    variable j, by performing "line" logsumexps, where the variables xi and yj 
-    are in a 2D grid with spacing dx.
-    Dedicated CUDA implementation, faster than the KeOps version for Ms, 
-    Ns ≲ 1024.
-    """
-    B = batch_dim(h)
-    M1, M2 = Ms
-    N1, N2 = Ns
-    dx_eff = dx/math.sqrt(eps)
-    h = h.view(B*N1, N2).contiguous()  # (B*N1, N2)
-    h = LogSumExpCUDA(h, M2, dx_eff)  # (B*N1, M2)
-    h = h.reshape((B, N1, M2)).permute((0, 2, 1)).contiguous() \
-        .reshape((B*M2, N1))    # (B*M2, N1)
-    h = LogSumExpCUDA(h, M1, dx_eff)  # (B*M2, M1)
-    h = h.reshape((B, M2, M1)).permute((0, 2, 1)).contiguous()  # (B, M1, M2)
-    return h
-
-def softmin_cuda_image_xyeps(h, Ms, Ns, dx, dy, eps):
-    """
-    Compute the online logsumexp of hj - |xi - yj|^2/eps with respect to the 
-    variable j, by performing "line" logsumexps, where the variables xi and yj 
-    are in a 2D grid with spacing dx.
-    Dedicated CUDA implementation, faster than the KeOps version for Ms, 
-    Ns ≲ 1024.
-    """
-    B = batch_dim(h)
-    M1, M2 = Ms
-    N1, N2 = Ns
-    h = h.view(B*N1, N2).contiguous()  # (B*N1, N2)
-    h = LogSumExpCUDA_xyeps(h, M2, dx, dy, eps)  # (B*N1, M2)
-    h = h.reshape((B, N1, M2)).permute((0, 2, 1)).contiguous() \
-        .reshape((B*M2, N1))    # (B*M2, N1)
-    h = LogSumExpCUDA_xyeps(h, M1, dx, dy, eps)  # (B*M2, M1)
-    h = h.reshape((B, M2, M1)).permute((0, 2, 1)).contiguous()  # (B, M1, M2)
-    return h
-
+from .aux import *
 
 class AbstractSinkhorn:
     """
@@ -294,7 +132,7 @@ class AbstractSinkhorn:
         Iterate a number of times, and compute the current error
         """
         self.Niter += niter
-        for _ in range(niter):  # TODO -1 since get_curr_error makes extra iter
+        for _ in range(niter-1): # last iteration done in `get_current_error`
             self.update_alpha()
             self.update_beta()
         return self.get_current_error()
@@ -314,7 +152,7 @@ class AbstractSinkhorn:
         Change the regularization strength and reset
         error and iteration count
         """
-        # NOTE: Careful, different implementations may need
+        # NOTE: Careful, offset implementations may need
         # more steps for this
         self.eps = new_eps
         self.Niter = 0
@@ -551,7 +389,6 @@ class LogSinkhornKeopsImage(AbstractSinkhorn):
             + self.lognuref - self.lognu
         )
 
-
 class LogSinkhornCudaImage(AbstractSinkhorn):
     """
     Online Sinkhorn solver for standard OT on images with separable cost, custom CUDA implementation. 
@@ -580,50 +417,134 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         with same dimensions as mu
         Initialization for the first Sinkhorn potential
     """
-
     def __init__(self, mu, nu, C, eps, **kwargs):
         if isinstance(C, (int, float)):
-            dx = C
+            dxs = torch.tensor(C)
+            dys = dxs
         else:
             xs, ys = C
-            # TODO: check that xs, ys have same dx
-            dx = xs[0][1] - xs[0][0]
+            
+            def get_dx(x):
+                """
+                Get spacing between points in `x`, checking that grid is 
+                1-dimensional, equispaced and starting in zero.
+                """
+                assert len(x.shape) == 1, "x must be 1-dimensional"
+                assert x[0] == 0, "x must start at zero. For a non-zero \
+                    offset use `LogSinkhornCudaImageOffset`"
+                if len(x) == 1:
+                    return 1.0
+                else:
+                    # Check that gridpoints are equispaced
+                    diff = torch.diff(x)
+                    dx = diff[0]
+                    assert torch.allclose(diff, dx, rtol=1e-4), \
+                        "grid points must be equispaced"
+                    return dx.item()
+                            
+            dxs = torch.tensor([get_dx(xi) for xi in xs]).cpu()
+            dys = torch.tensor([get_dx(yj) for yj in ys]).cpu()
         Ms = geom_dims(mu)
         Ns = geom_dims(nu)
         assert len(Ms) == len(Ns) == 2, "Shapes incompatible with images"
-        super().__init__(mu, nu, (dx, Ms, Ns), eps, **kwargs)
+        super().__init__(mu, nu, (dxs, dys, Ms, Ns), eps, **kwargs)
         # Softmin function assumes inputs of shape (N, dim)
 
     def get_new_alpha(self):
-        dx, Ms, Ns = self.C
+        dxs, dys, Ms, Ns = self.C
         h = self.beta / self.eps + self.lognu
         return - self.eps * (
-            softmin_cuda_image(h, Ms, Ns, self.eps, dx)
+            softmin_cuda_image(h, Ms, Ns, self.eps, dxs, dys)
             + self.logmuref - self.logmu
         )
 
     def get_new_beta(self):
-        dx, Ms, Ns = self.C
+        dxs, dys, Ms, Ns = self.C
         h = self.alpha / self.eps + self.logmu
         return - self.eps * (
-            softmin_cuda_image(h, Ns, Ms, self.eps, dx)
+            softmin_cuda_image(h, Ns, Ms, self.eps, dys, dxs)
             + self.lognuref - self.lognu
         )
+    
+# TODO: bring LogSinkhornCudaImageOffset here
 
-class LogSinkhornCudaImage_xyeps(AbstractSinkhorn):
+# Previous version
+# 
+# class LogSinkhornCudaImage(AbstractSinkhorn):
+#     """
+#     Online Sinkhorn solver for standard OT on images with separable cost, custom CUDA implementation. 
+#     Each Sinkhorn iteration has complexity N^(3/2), instead of the usual N^2. 
+#     Inspired greatly on `geomloss`.
+
+#     Attributes
+#     ----------
+#     mu : torch.Tensor of size (B, M1, M2)
+#         First marginals
+#     nu : torch.Tensor of size (B, N1, N2)
+#         Second marginals 
+#     C  : either float or tuple of the form ((x1, x2), (y1, y2))
+#         Distance between pixels, or grid coordinates
+#     eps : float
+#         Regularization strength
+#     muref : torch.Tensor 
+#         with same dimensions as mu (except axis 0, which can have len = 1)
+#         First reference measure for the Gibbs energy, 
+#         i.e. K = muref \otimes nuref exp(-C/eps)
+#     nuref : torch.Tensor 
+#         with same dimensions as nu (except axis 0, which can have len = 1)
+#         Second reference measure for the Gibbs energy, 
+#         i.e. K = muref \otimes nuref exp(-C/eps)
+#     alpha_init : torch.Tensor, or None
+#         with same dimensions as mu
+#         Initialization for the first Sinkhorn potential
+#     """
+#     # TODO: update obtaining of dx, dy
+#     def __init__(self, mu, nu, C, eps, **kwargs):
+#         if isinstance(C, (int, float)):
+#             dx = torch.tensor(C)
+#         else:
+#             xs, ys = C
+#             # TODO: check that xs, ys have same dx
+#             dx = xs[0][1] - xs[0][0]
+#         Ms = geom_dims(mu)
+#         Ns = geom_dims(nu)
+#         assert len(Ms) == len(Ns) == 2, "Shapes incompatible with images"
+#         super().__init__(mu, nu, (dx, Ms, Ns), eps, **kwargs)
+#         # Softmin function assumes inputs of shape (N, dim)
+
+#     def get_new_alpha(self):
+#         dx, Ms, Ns = self.C
+#         h = self.beta / self.eps + self.lognu
+#         return - self.eps * (
+#             softmin_cuda_image(h, Ms, Ns, self.eps, dx)
+#             + self.logmuref - self.logmu
+#         )
+
+#     def get_new_beta(self):
+#         dx, Ms, Ns = self.C
+#         h = self.alpha / self.eps + self.logmu
+#         return - self.eps * (
+#             softmin_cuda_image(h, Ns, Ms, self.eps, dx)
+#             + self.lognuref - self.lognu
+#         )
+
+class LogSinkhornCudaImageOffset(AbstractSinkhorn):
     """
-    Online Sinkhorn solver for standard OT on images with separable cost, custom CUDA implementation. 
+    Online Sinkhorn solver for standard OT on images with separable cost, 
+    custom CUDA implementation. 
     Each Sinkhorn iteration has complexity N^(3/2), instead of the usual N^2. 
-    Inspired greatly on `geomloss`.
 
     Attributes
     ----------
-    mu : torch.Tensor of size (B, M1, M2)
+    mu : torch.Tensor 
+        of size (B, M1, M2)
         First marginals
-    nu : torch.Tensor of size (B, N1, N2)
+    nu : torch.Tensor 
+        of size (B, N1, N2)
         Second marginals 
-    C  : either float or tuple of the form ((x1, x2), (y1, y2))
-        Distance between pixels, or grid coordinates
+    C : tuple 
+        of the form ((x1, x2), (y1, y2))
+        Grid coordinates
     eps : float
         Regularization strength
     muref : torch.Tensor 
@@ -634,37 +555,122 @@ class LogSinkhornCudaImage_xyeps(AbstractSinkhorn):
         with same dimensions as nu (except axis 0, which can have len = 1)
         Second reference measure for the Gibbs energy, 
         i.e. K = muref \otimes nuref exp(-C/eps)
-    alpha_init : torch.Tensor, or None
-        with same dimensions as mu
+    alpha_init : torch.Tensor 
+        with same dimensions as mu, or None
         Initialization for the first Sinkhorn potential
     """
 
     def __init__(self, mu, nu, C, eps, **kwargs):
-        if isinstance(C, (int, float)):
-            dx = C
-        else:
-            xs, ys = C
-            # TODO: check that xs, ys have same dx
-            dx = xs[0][1] - xs[0][0]
-            dy = ys[0][1] - ys[0][0]
+        xs, ys = C
+        B = batch_dim(mu)
+
+        def get_dx(x, B):
+            """
+            Get spacing between points in `x`, checking that grid is 
+            2-dimensional (batch + physical dimension), sharing same 
+            batch dimension `B` and equispaced.
+            """
+            assert len(x.shape) == 2, "x must have a batch and physical dim"
+            assert x.shape[0] == B, "x must have `B` as batch dim"
+            if x.shape[1] == 1:
+                return 1.0
+            else:
+                # Check that gridpoints are equispaced
+                diff = torch.diff(x, dim=1)
+                dx = diff[0,0]
+                assert torch.allclose(diff, dx, rtol=1e-4), \
+                    "grid points must be equispaced"
+                return dx.item()
+
+        dxs = torch.tensor([get_dx(xi, B) for xi in xs]).cpu()
+        dys = torch.tensor([get_dx(yj, B) for yj in ys]).cpu()
+
+        # Check geometric dimensions
         Ms = geom_dims(mu)
         Ns = geom_dims(nu)
         assert len(Ms) == len(Ns) == 2, "Shapes incompatible with images"
-        super().__init__(mu, nu, (dx, dy, Ms, Ns), eps, **kwargs)
-        # Softmin function assumes inputs of shape (N, dim)
+
+        # Compute the offsets
+        self.offsetX, self.offsetY, self.offset_const = \
+            compute_offsets_sinkhorn_grid(xs, ys, eps)
+
+        # Save xs and ys in case they are needed later
+        self.xs = xs
+        self.ys = ys
+
+        C = (dxs, dys, Ms, Ns)
+
+        super().__init__(mu, nu, C, eps, **kwargs)
 
     def get_new_alpha(self):
-        dx, dy, Ms, Ns = self.C
-        h = self.beta / self.eps + self.lognu
+        dxs, dys, Ms, Ns = self.C
+        h = self.beta / self.eps + self.lognuref + self.offsetY
         return - self.eps * (
-            softmin_cuda_image_xyeps(h, Ms, Ns, dx, dy, self.eps)
-            + self.logmuref - self.logmu
+            softmin_cuda_image(h, Ms, Ns, self.eps, dxs, dys)
+            + self.offsetX + self.offset_const + self.logmuref - self.logmu
         )
 
     def get_new_beta(self):
-        dx, dy, Ms, Ns = self.C
-        h = self.alpha / self.eps + self.logmu
+        dxs, dys, Ms, Ns = self.C
+        h = self.alpha / self.eps + self.logmuref + self.offsetX
         return - self.eps * (
-            softmin_cuda_image_xyeps(h, Ns, Ms, dx, dy, self.eps)
-            + self.lognuref - self.lognu
+            softmin_cuda_image(h, Ns, Ms, self.eps, dys, dxs)
+            + self.offsetY + self.offset_const + self.lognuref - self.lognu
         )
+
+    def get_dense_cost(self, ind=None):
+        """
+        Get dense cost matrix of given problems. If no argument is given, all 
+        costs are computed. Can be memory intensive, so it is recommended to do 
+        small batches at a time.
+        """
+
+        if ind == None:
+            ind = slice(None,)
+        elif isinstance(ind, int):
+            ind = [ind]
+
+        xs = tuple(x[ind] for x in self.xs)
+        ys = tuple(y[ind] for y in self.ys)
+        X = batch_shaped_cartesian_prod(xs)
+        Y = batch_shaped_cartesian_prod(ys)
+        B = X.shape[0]
+        dim = X.shape[-1]
+        C = ((X.view(B, -1, 1, dim) - Y.view(B, 1, -1, dim))**2).sum(dim=-1)
+        return C, X, Y
+
+    def get_dense_plan(self, ind=None, C=None):
+        """
+        Get dense plans of given problems. If no argument is given, all plans 
+        are computed. Can be memory intensive, so it is recommended to do small 
+        batches at a time via the argument `ind`.
+        """
+        if ind == None:
+            ind = slice(None,)
+        elif isinstance(ind, int):
+            ind = [ind]
+
+        if C == None:
+            C, _, _ = self.get_dense_cost(ind)
+
+        B = C.shape[0]
+        alpha, beta = self.alpha[ind], self.beta[ind]
+        muref, nuref = self.muref[ind], self.nuref[ind]
+
+        pi = torch.exp(
+            (alpha.view(B, -1, 1) + beta.view(B, 1, -1) - C) / self.eps
+        ) * muref.view(B, -1, 1) * nuref.view(B, 1, -1)
+        return pi
+
+    def change_eps(self, new_eps):
+        """
+        Change the regularization strength `self.eps`.
+        In this solver this also involves renormalizing the offsets.
+        """
+        self.Niter = 0
+        self.current_error = self.max_error + 1.
+        scale = self.eps / new_eps
+        self.offsetX = self.offsetX * scale
+        self.offsetY = self.offsetY * scale
+        self.offset_const = self.offset_const * scale
+        self.eps = new_eps

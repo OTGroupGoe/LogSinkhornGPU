@@ -419,7 +419,8 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
     """
     def __init__(self, mu, nu, C, eps, **kwargs):
         if isinstance(C, (int, float)):
-            dxs = torch.tensor(C)
+            dx = C
+            dxs = torch.tensor([dx, dx], dtype = mu.dtype)
             dys = dxs
         else:
             xs, ys = C

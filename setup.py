@@ -1,5 +1,11 @@
 from setuptools import setup, find_packages
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
+import os
+
+# Install for several CUDA architectures
+# The +PTX should make the code work also for newer architectures, but
+# this has not been tested (no newer architectures in GWDG cluster yet) 
+os.environ["TORCH_CUDA_ARCH_LIST"] = "7.0 7.5+PTX"
 
 setup(
     name='LogSinkhornGPU',
@@ -10,9 +16,11 @@ setup(
         CUDAExtension(
             name='LogSinkhornGPU.backend',
             sources=[
-                'LogSinkhornGPU/backend/logsumexp.cpp',
-                'LogSinkhornGPU/backend/logsumexp_kernel.cu'
+                'LogSinkhornGPU/backend/pybind.cpp',
+                'LogSinkhornGPU/backend/logsumexp.cu',
+                'LogSinkhornGPU/backend/domdec.cu'
             ],
+            extra_compile_args={'nvcc': ['-O2', "--use_fast_math"]},
         ),
     ],
     cmdclass={'build_ext': BuildExtension},

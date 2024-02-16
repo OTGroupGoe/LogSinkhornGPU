@@ -1,6 +1,7 @@
 #include <torch/extension.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <math.h>
 
 // Compiling this with --use_fast_math we get some noticeable performance improvement
 template <typename scalar_t>

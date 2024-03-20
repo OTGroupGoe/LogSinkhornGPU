@@ -93,30 +93,59 @@ class AbstractSinkhorn:
         self.max_error_rel = max_error_rel
         self.inner_iter = inner_iter
         self.max_iter = max_iter
-        self.current_error = self.max_error + 1
+        self.current_error = self.max_error + 1.0
         self.Niter = 0
 
-    # The definitions for getting new duals and computing the error must be
+    # The implementation for getting new duals and computing the error must be
     # written in each subclass
     def get_new_alpha(self):
+        """
+        Compute and return new alpha. Implementation-dependent.
+        """
         raise NotImplementedError(
-            "AbstractSinkhorn has no implementation of the logsumexp"
+            "AbstractSinkhorn has no implementation of the sinkhorn iteration"
         )
 
     def get_new_beta(self):
+        """
+        Compute and return new beta. Implementation-dependent.
+        """
         raise NotImplementedError(
-            "AbstractSinkhorn has no implementation of the logsumexp"
+            "AbstractSinkhorn has no implementation of the sinkhorn iteration"
         )
 
+    def get_cost(self):
+        """
+        Get cost matrix. Implementation-dependent.
+        """
+        raise NotImplementedError(
+            "AbstractSinkhorn has no implementation of cost matrix"
+        )
+
+    def get_pi_dense(self):
+        """
+        Compute dense plan. Implementation-dependent.
+        """
+        raise NotImplementedError(
+            "AbstractSinkhorn has no implementation of dense plan"
+        )
+    
     def update_beta(self):
+        """
+        Compute and update beta
+        """
         self.beta = self.get_new_beta()
 
     def update_alpha(self):
+        """
+        Compute and update alpha
+        """
         self.alpha = self.get_new_alpha()
 
     def get_current_error(self):
         """
-        Get current error for standard Sinkhorn
+        Get L1 Y-marginal error for standard Sinkhorn, without computing
+        the full plan. Performs an additional Sinkhorn iter.
         """
         self.update_alpha()
         new_beta = self.get_new_beta()
@@ -138,12 +167,17 @@ class AbstractSinkhorn:
         return self.get_current_error()
 
     def iterate_until_max_error(self):
+        """
+        Iterate until the sinkhorn error gets below `self.max_error`, or 
+        `self.max_iter` iterations are performed.
+        """
         max_error = self.max_error
+        max_iter = self.max_iter
         if self.max_error_rel:
             max_error *= torch.sum(self.mu)
-        while (self.Niter < self.max_iter) and (self.current_error >= max_error):
+        while (self.Niter < max_iter) and (self.current_error >= max_error):
             self.current_error = self.iterate(self.inner_iter)
-        status = 'converged' if self.current_error < self.max_error \
+        status = 'converged' if self.current_error < max_error \
             else 'not converged'
         return status
 
@@ -152,8 +186,7 @@ class AbstractSinkhorn:
         Change the regularization strength and reset
         error and iteration count
         """
-        # NOTE: Careful, offset implementations may need
-        # more steps for this
+        # NOTE: Careful, offset implementations may need additional steps
         self.eps = new_eps
         self.Niter = 0
         self.current_error = self.max_error + 1.0   
@@ -190,6 +223,9 @@ class LogSinkhornTorch(AbstractSinkhorn):
         super().__init__(mu, nu, C, eps, **kwargs)
 
     def get_new_alpha(self):
+        """
+        Compute and return new alpha
+        """
         return - self.eps * (
             softmin_torch(
                 (self.beta[:, None, :] - self.C) / self.eps
@@ -199,6 +235,9 @@ class LogSinkhornTorch(AbstractSinkhorn):
         )
 
     def get_new_beta(self):
+        """
+        Compute and return new beta
+        """
         return - self.eps * (
             softmin_torch(
                 (self.alpha[:, :, None] - self.C) / self.eps
@@ -206,8 +245,17 @@ class LogSinkhornTorch(AbstractSinkhorn):
             )
             + self.lognuref - self.lognu
         )
+    
+    def get_cost(self):
+        """
+        Get cost matrix. May be memory intensive.
+        """
+        return self.C
 
     def get_pi_dense(self):
+        """
+        Compute and return dense plan. May be memory intensive.
+        """
         return torch.exp(
             (self.alpha[:, :, None] + self.beta[:, None, :] - self.C)/self.eps
             + self.logmuref[:, :, None] + self.lognuref[:, None, :]
@@ -223,8 +271,7 @@ class LogSinkhornTorchImage(AbstractSinkhorn):
     ----------
     mu : torch.Tensor of size (B, M1, M2)
         First marginals
-    nu : torch.Tensor 
-        of size (B, N1, N2)
+    nu : torch.Tensor of size (B, N1, N2)
         Second marginals 
     C : tuple of torch.Tensor 
         of size (M1, N1) and (M2, N2)
@@ -258,11 +305,14 @@ class LogSinkhornTorchImage(AbstractSinkhorn):
             assert Ci.shape[1:] == (mu.shape[i+1], nu.shape[i+1]), \
                 "Dimensions of cost and marginal not matching"
 
+        # Get transpose cost matrices
         self.CT = tuple(Ci.permute((0, 2, 1)).contiguous() for Ci in C)
         super().__init__(mu, nu, C, eps, **kwargs)
-        # Get transpose transport matrix
 
     def get_new_alpha(self):
+        """
+        Compute and return new alpha
+        """
         h = (self.beta / self.eps + self.lognuref)
         return - self.eps * (
             softmin_torch_image(h, self.C[0], self.C[1], self.eps)
@@ -270,30 +320,43 @@ class LogSinkhornTorchImage(AbstractSinkhorn):
         )
 
     def get_new_beta(self):
+        """
+        Compute and return new beta
+        """
         h = (self.alpha / self.eps + self.logmuref)
         return - self.eps * (
             softmin_torch_image(h, self.CT[0], self.CT[1], self.eps)
             + self.lognuref - self.lognu
         )
 
-    # def get_pi_dense(self):
-    #     return torch.exp(
-    #         (self.alpha + self.beta - self.C) / self.eps
-    #         + self.logmu + self.lognu
-    #     )
+    def get_cost(self):
+        """
+        Get cost matrix.
+        """
+        raise NotImplementedError(
+            "Not implemented yet"
+        )
+
+    def get_pi_dense(self):
+        """
+        Compute dense plan.
+        """
+        raise NotImplementedError(
+            "Not implemented yet"
+        )
 
 
 class LogSinkhornKeops(AbstractSinkhorn):
     """
-    Online Sinkhorn solver for standard OT, using `pykeops`. 
+    Online Sinkhorn solver for standard OT, using `pykeops`. Similar 
+    implementation to that in `geomloss`, but monitoring the sinkhorn error
+    and only stopping when it reaches `self.max_error`.
 
     Attributes
     ----------
-    mu : torch.Tensor 
-        of size (B, M)
+    mu : torch.Tensor of size (B, M)
         First marginals
-    nu : torch.Tensor 
-        of size (B, N)
+    nu : torch.Tensor of size (B, N)
         Second marginals 
     C : tuple of the form (X, Y)
         Coordinates of mu and nu. Must have shapes of the form 
@@ -326,6 +389,9 @@ class LogSinkhornKeops(AbstractSinkhorn):
         super().__init__(mu, nu, C, eps, **kwargs)
 
     def get_new_alpha(self):
+        """
+        Compute and return new alpha
+        """
         x, y = self.C
         h = self.beta / self.eps + self.lognu
         return - self.eps * (
@@ -333,19 +399,37 @@ class LogSinkhornKeops(AbstractSinkhorn):
         )
 
     def get_new_beta(self):
+        """
+        Compute and return new beta
+        """
         x, y = self.C
         h = self.alpha / self.eps + self.logmu
         return - self.eps * (
             softmin_keops(h, y, x, self.eps) + self.lognuref - self.lognu
         )
 
+    def get_cost(self):
+        """
+        Get cost matrix.
+        """
+        raise NotImplementedError(
+            "Not implemented yet"
+        )
+
+    def get_pi_dense(self):
+        """
+        Compute dense plan.
+        """
+        raise NotImplementedError(
+            "Not implemented yet"
+        )
 
 class LogSinkhornKeopsImage(AbstractSinkhorn):
     """
     Online Sinkhorn solver for standard OT on images with separable cost, using
-    `pykeops`. 
+    `pykeops`. Similar implementation to that in `geomloss`, but monitoring 
+    the sinkhorn error and only stopping when it reaches `self.max_error`.
     Each Sinkhorn iteration has complexity N^(3/2), instead of the usual N^2. 
-    Inspired greatly on `geomloss`.
 
     Attributes
     ----------
@@ -357,16 +441,13 @@ class LogSinkhornKeopsImage(AbstractSinkhorn):
         Grid coordinates for the marginals
     eps : float
         Regularization strength
-    muref : torch.Tensor 
-        with same dimensions as mu (except axis 0, which can have len = 1)
+    muref : torch.Tensor with same shape as mu (except axis 0, which can be 1)
         First reference measure for the Gibbs energy, 
         i.e. K = muref \otimes nuref exp(-C/eps)
-    nuref : torch.Tensor 
-        with same dimensions as nu (except axis 0, which can have len = 1)
+    nuref : torch.Tensor with same shape as nu (except axis 0, which can be 1)
         Second reference measure for the Gibbs energy, 
         i.e. K = muref \otimes nuref exp(-C/eps)
-    alpha_init : torch.Tensor, or None
-        with same dimensions as mu
+    alpha_init : torch.Tensor, or None with same dimensions as mu
         Initialization for the first Sinkhorn potential
     """
 
@@ -374,6 +455,9 @@ class LogSinkhornKeopsImage(AbstractSinkhorn):
         super().__init__(mu, nu, C, eps, **kwargs)
 
     def get_new_alpha(self):
+        """
+        Compute and return new alpha
+        """
         xs, ys = self.C
         h = self.beta / self.eps + self.lognu
         return - self.eps * (
@@ -382,6 +466,9 @@ class LogSinkhornKeopsImage(AbstractSinkhorn):
         )
 
     def get_new_beta(self):
+        """
+        Compute and return new beta
+        """
         xs, ys = self.C
         h = self.alpha / self.eps + self.logmu
         return - self.eps * (
@@ -389,11 +476,28 @@ class LogSinkhornKeopsImage(AbstractSinkhorn):
             + self.lognuref - self.lognu
         )
 
+    def get_cost(self):
+        """
+        Get cost matrix.
+        """
+        raise NotImplementedError(
+            "Not implemented yet"
+        )
+
+    def get_pi_dense(self):
+        """
+        Compute dense plan.
+        """
+        raise NotImplementedError(
+            "Not implemented yet"
+        )
+
 class LogSinkhornCudaImage(AbstractSinkhorn):
     """
-    Online Sinkhorn solver for standard OT on images with separable cost, custom CUDA implementation. 
-    Each Sinkhorn iteration has complexity N^(3/2), instead of the usual N^2. 
-    Inspired greatly on `geomloss`.
+    Online Sinkhorn solver for standard OT on images with separable cost, 
+    custom CUDA implementation. Each Sinkhorn iteration has complexity N^(3/2), 
+    instead of the usual N^2. Inspired by the symbolic reduction in `geomloss`,
+    but CUDA kernel is optimized for the range of many problems - small size.
 
     Attributes
     ----------
@@ -405,12 +509,10 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         Distance between pixels, or grid coordinates
     eps : float
         Regularization strength
-    muref : torch.Tensor 
-        with same dimensions as mu (except axis 0, which can have len = 1)
+    muref : torch.Tensor with same shape as mu (except axis 0, which can be 1)
         First reference measure for the Gibbs energy, 
         i.e. K = muref \otimes nuref exp(-C/eps)
-    nuref : torch.Tensor 
-        with same dimensions as nu (except axis 0, which can have len = 1)
+    nuref : torch.Tensor with same shape as nu (except axis 0, which can be 1)
         Second reference measure for the Gibbs energy, 
         i.e. K = muref \otimes nuref exp(-C/eps)
     alpha_init : torch.Tensor, or None
@@ -452,6 +554,9 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         # Softmin function assumes inputs of shape (N, dim)
 
     def get_new_alpha(self):
+        """
+        Compute and return new alpha
+        """
         dxs, dys, Ms, Ns = self.C
         h = self.beta / self.eps + self.lognu
         return - self.eps * (
@@ -460,104 +565,54 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         )
 
     def get_new_beta(self):
+        """
+        Compute and return new beta
+        """
         dxs, dys, Ms, Ns = self.C
         h = self.alpha / self.eps + self.logmu
         return - self.eps * (
             softmin_cuda_image(h, Ns, Ms, self.eps, dys, dxs)
             + self.lognuref - self.lognu
         )
+
+    def get_cost(self):
+        """
+        Get cost matrix.
+        """
+        raise NotImplementedError(
+            "Not implemented yet"
+        )
+
+    def get_pi_dense(self):
+        """
+        Compute dense plan.
+        """
+        raise NotImplementedError(
+            "Not implemented yet"
+        )
     
-# TODO: bring LogSinkhornCudaImageOffset here
-
-# Previous version
-# 
-# class LogSinkhornCudaImage(AbstractSinkhorn):
-#     """
-#     Online Sinkhorn solver for standard OT on images with separable cost, custom CUDA implementation. 
-#     Each Sinkhorn iteration has complexity N^(3/2), instead of the usual N^2. 
-#     Inspired greatly on `geomloss`.
-
-#     Attributes
-#     ----------
-#     mu : torch.Tensor of size (B, M1, M2)
-#         First marginals
-#     nu : torch.Tensor of size (B, N1, N2)
-#         Second marginals 
-#     C  : either float or tuple of the form ((x1, x2), (y1, y2))
-#         Distance between pixels, or grid coordinates
-#     eps : float
-#         Regularization strength
-#     muref : torch.Tensor 
-#         with same dimensions as mu (except axis 0, which can have len = 1)
-#         First reference measure for the Gibbs energy, 
-#         i.e. K = muref \otimes nuref exp(-C/eps)
-#     nuref : torch.Tensor 
-#         with same dimensions as nu (except axis 0, which can have len = 1)
-#         Second reference measure for the Gibbs energy, 
-#         i.e. K = muref \otimes nuref exp(-C/eps)
-#     alpha_init : torch.Tensor, or None
-#         with same dimensions as mu
-#         Initialization for the first Sinkhorn potential
-#     """
-#     # TODO: update obtaining of dx, dy
-#     def __init__(self, mu, nu, C, eps, **kwargs):
-#         if isinstance(C, (int, float)):
-#             dx = torch.tensor(C)
-#         else:
-#             xs, ys = C
-#             # TODO: check that xs, ys have same dx
-#             dx = xs[0][1] - xs[0][0]
-#         Ms = geom_dims(mu)
-#         Ns = geom_dims(nu)
-#         assert len(Ms) == len(Ns) == 2, "Shapes incompatible with images"
-#         super().__init__(mu, nu, (dx, Ms, Ns), eps, **kwargs)
-#         # Softmin function assumes inputs of shape (N, dim)
-
-#     def get_new_alpha(self):
-#         dx, Ms, Ns = self.C
-#         h = self.beta / self.eps + self.lognu
-#         return - self.eps * (
-#             softmin_cuda_image(h, Ms, Ns, self.eps, dx)
-#             + self.logmuref - self.logmu
-#         )
-
-#     def get_new_beta(self):
-#         dx, Ms, Ns = self.C
-#         h = self.alpha / self.eps + self.logmu
-#         return - self.eps * (
-#             softmin_cuda_image(h, Ns, Ms, self.eps, dx)
-#             + self.lognuref - self.lognu
-#         )
-
 class LogSinkhornCudaImageOffset(AbstractSinkhorn):
     """
     Online Sinkhorn solver for standard OT on images with separable cost, 
-    custom CUDA implementation. 
-    Each Sinkhorn iteration has complexity N^(3/2), instead of the usual N^2. 
+    custom CUDA implementation. Allows images with offset supports.
 
     Attributes
     ----------
-    mu : torch.Tensor 
-        of size (B, M1, M2)
+    mu : torch.Tensor of size (B, M1, M2)
         First marginals
-    nu : torch.Tensor 
-        of size (B, N1, N2)
+    nu : torch.Tensor of size (B, N1, N2)
         Second marginals 
-    C : tuple 
-        of the form ((x1, x2), (y1, y2))
+    C : tuple of the form ((x1, x2), (y1, y2))
         Grid coordinates
     eps : float
         Regularization strength
-    muref : torch.Tensor 
-        with same dimensions as mu (except axis 0, which can have len = 1)
+    muref : torch.Tensor with same shape as mu (except axis 0, which can be 1)
         First reference measure for the Gibbs energy, 
         i.e. K = muref \otimes nuref exp(-C/eps)
-    nuref : torch.Tensor 
-        with same dimensions as nu (except axis 0, which can have len = 1)
+    nuref : torch.Tensor with same shape as nu (except axis 0, which can be 1)
         Second reference measure for the Gibbs energy, 
         i.e. K = muref \otimes nuref exp(-C/eps)
-    alpha_init : torch.Tensor 
-        with same dimensions as mu, or None
+    alpha_init : torch.Tensor with same shape as mu, or None
         Initialization for the first Sinkhorn potential
     """
 
@@ -604,6 +659,9 @@ class LogSinkhornCudaImageOffset(AbstractSinkhorn):
         super().__init__(mu, nu, C, eps, **kwargs)
 
     def get_new_alpha(self):
+        """
+        Compute and return new alpha
+        """
         dxs, dys, Ms, Ns = self.C
         h = self.beta / self.eps + self.lognuref + self.offsetY
         return - self.eps * (
@@ -612,6 +670,9 @@ class LogSinkhornCudaImageOffset(AbstractSinkhorn):
         )
 
     def get_new_beta(self):
+        """
+        Compute and return new beta
+        """
         dxs, dys, Ms, Ns = self.C
         h = self.alpha / self.eps + self.logmuref + self.offsetX
         return - self.eps * (
@@ -619,9 +680,9 @@ class LogSinkhornCudaImageOffset(AbstractSinkhorn):
             + self.offsetY + self.offset_const + self.lognuref - self.lognu
         )
 
-    def get_dense_cost(self, ind=None):
+    def get_cost(self, ind=None):
         """
-        Get dense cost matrix of given problems. If no argument is given, all 
+        Get dense cost matrix of given problems. If no `ind` is given, all 
         costs are computed. Can be memory intensive, so it is recommended to do 
         small batches at a time.
         """
@@ -652,7 +713,7 @@ class LogSinkhornCudaImageOffset(AbstractSinkhorn):
             ind = [ind]
 
         if C == None:
-            C, _, _ = self.get_dense_cost(ind)
+            C, _, _ = self.get_cost(ind)
 
         B = C.shape[0]
         alpha, beta = self.alpha[ind], self.beta[ind]

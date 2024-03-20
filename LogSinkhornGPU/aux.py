@@ -57,8 +57,7 @@ def softmin_torch_image(h, C1, C2, eps):
 def softmin_keops(h, x, y, eps):
     """
     Compute the online logsumexp of hj - |xi-yj|^2/eps with respect to the 
-    variable j. 
-    Inspired by `geomloss`.
+    variable j. Following `geomloss`.
     """
     B = batch_dim(h)
     xi = LazyTensor(x[:, :, None, :])
@@ -72,7 +71,7 @@ def softmin_keops_line(h, x, y, eps):
     """
     Compute the online logsumexp of hj - |xi-yj|^2/eps with respect to the 
     variable j. `x` and `y` are unidimensional vectors. 
-    Inspired by `geomloss`.
+    Following `geomloss`.
     """
     B = batch_dim(h)
     # If we remove the last dimension keops freaks out
@@ -87,7 +86,7 @@ def softmin_keops_image(h, xs, ys, eps):
     """
     Compute the online logsumexp of hj - |xi-yj|^2/eps with respect to the 
     variable j, by performing "line" logsumexps. 
-    Inspired by `geomloss`.
+    Following `geomloss`.
     """
     B = batch_dim(h)
     x1, x2 = xs
@@ -106,10 +105,9 @@ def softmin_cuda_image(h, Ms, Ns, eps, dxs, dys = None):
     """
     Compute the online logsumexp of hj - |xi - yj|^2/eps with respect to the 
     variable j, by performing "line" logsumexps, where the variables xi and yj 
-    are in a 2D grid with spacing dx.
+    are in respective 2D grid with spacings dxs and dys.
     Dedicated CUDA implementation, faster than the KeOps version for Ms, 
     Ns ≲ 1024.
-    TODO: update description
     """
     if dxs.numel() == 1:
         dxs = dxs * torch.ones(2, dtype = dxs.dtype, device = dxs.device)
@@ -130,9 +128,9 @@ def softmin_cuda_image(h, Ms, Ns, eps, dxs, dys = None):
 
 def batch_shaped_cartesian_prod(xs):
     """
-    For xs = (x1, ..., xd) a tuple of tensors of shape (B, M1), ... (B, Md), 
-    form the tensor X of shape (B, M1, ..., Md, d) such that
-    `X[i] = torch.cartesian_prod(xs[i],...,xs[i]).view(M1, ..., Md, d)`
+    Compute the tensor X of shape (B, M1, ..., Md, d) such that
+    `X[i] = torch.cartesian_prod(x1[i],...,xd[i]).view(M1, ..., Md, d)`,
+    where xs = (x1, ..., xd) is tuple of tensors of shape (B, M1), ... (B, Md).
     """
     B = xs[0].shape[0]
     for x in xs:
@@ -151,10 +149,14 @@ def batch_shaped_cartesian_prod(xs):
 
 def compute_offsets_sinkhorn_grid(xs, ys, eps):
     """
-    Compute offsets
+    Compute offsets for sinkhorn potentials when grid does not start at 0. 
+    The entropic OT plan is invariant under constant offsets, because their 
+    effect is absorved by the duals. This function computes those dual offsets.
+
+    Arguments
+    =========
     xs and ys are d-tuples of tensors with shape (B, Mi) where B is the batch 
-    dimension and Mi the size of the grid in that coordinate
-    # TODO: ref
+    dimension and Mi the size of the grid in that coordinate.
     """
     # Get cartesian prod
     X = batch_shaped_cartesian_prod(xs)
@@ -169,7 +171,7 @@ def compute_offsets_sinkhorn_grid(xs, ys, eps):
     Y0 = Y[(slice(None),) + (0,)*dim + (slice(None),)] \
         .view((B,) + (1,)*dim + (dim,))  # NOTE alternatively: use unpack op.
 
-    # Use the formulas in [TODO: ref] to compute the offset
+    # Compute the offsets
     offsetX = torch.sum(2*(X-X0)*(Y0-X0), dim=-1)/eps
     offsetY = torch.sum(2*(Y-Y0)*(X0-Y0), dim=-1)/eps
     offset_constant = -torch.sum((X0-Y0)**2, dim=-1)/eps

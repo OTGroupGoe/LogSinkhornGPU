@@ -11,6 +11,10 @@ template <typename scalar_t>
 __global__ void balance(
     int B, int C, int N, scalar_t *nu_basic, scalar_t *mass_delta, scalar_t thresh_step)
 {
+    // Balance domdec cell marginals in the same composite cell
+    // Mauro Bonafini, Bernhard Schmitzer, "Domain decomposition for entropy 
+    // regularized optimal transport", Section 6.2.
+    
     // B is number of OT problems, C number of basic cells per composite cell
     // N is size of box
     // nu_basic are basic cell marginals, size (B, C, N)
@@ -117,6 +121,12 @@ __global__ void add_with_offsets_2D(
     torch::PackedTensorAccessor32<int, 2> height_basic
 )
 {
+    // Generalization of sparse vector adition to the context of bounding boxes
+    // sum_indices[j] indicates the indices of nu_basic that must be 
+    // aggregated to render nu_composite[j]. Each of these basic cells may need
+    // to be multiplied by a weight `weights[j][k]`. Relative position of basic
+    // cells in the composite bounding box extent are represented by *in_basic, 
+    // *in_composite, width and height.
     int j = blockIdx.x * blockDim.x + threadIdx.x; // index of comp cell
     if (j >= B)                                    // take care of indices bigger than size
         return;

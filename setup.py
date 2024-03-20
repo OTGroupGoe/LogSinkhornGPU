@@ -27,6 +27,6 @@ setup(
     author='Ismael Medina',
     author_email='ismael.medina@cs.uni-goettingen.de',
     description='LogSinkhorn routines in the GPU',
-    keywords='Optimal transport logsinkhorn GPU',
+    keywords='Optimal transport sinkhorn GPU',
     url='https://github.com/OTGroupGoe/LogSinkhornGPU'
 )

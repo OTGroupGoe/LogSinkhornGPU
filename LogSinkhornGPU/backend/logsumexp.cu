@@ -8,11 +8,17 @@ template <typename scalar_t>
 __global__ void logsumexp(int B, int M, int N, 
     scalar_t *alpha, scalar_t *beta, scalar_t dx, scalar_t dy)
 {
+    // Compute the online logsumexp of a[b, i] - |x[b, i] - y[b, j]|^2, along
+    // index i, for x equispaced points starting in 0 and separation dx, 
+    // y equispaced point starting in 0 and separation dy.
     // alpha is input, with size (B, N)
     // beta is output, with size (B, M)
-    int index = blockIdx.x * blockDim.x + threadIdx.x; // linear index for beta, corresponds to cartesian (b, j)
+
+    // linear index for beta, corresponds to cartesian (b, j)
+    int index = blockIdx.x * blockDim.x + threadIdx.x; 
     int b = index / M;
     int j = index % M;
+    // y coordinate corresponding to beta[index]
     scalar_t y = j*dy;
     if (b >= B)
     { // take care of bigger-than-size indices
@@ -42,7 +48,6 @@ torch::Tensor LogSumExpCUDAKernel(
   
   int B = alpha.size(0);
   int N = alpha.size(1);
-  // TODO: Check input size
 
   // Init tensor of size (B, M)
   torch::Tensor beta = torch::empty({B, M}, alpha.options());  

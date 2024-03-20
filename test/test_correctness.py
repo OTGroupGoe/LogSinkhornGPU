@@ -111,3 +111,5 @@ for dtype in [torch.float32, torch.float64]:
     errors[3,1] = torch.sum(torch.abs(a_ref_N - a_cuda_image))/(B*M)
     
     assert torch.all(errors < 1e-5), "some errors bigger than tolerance"
+
+print("All tests ran correctly")

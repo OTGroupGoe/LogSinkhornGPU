@@ -140,28 +140,25 @@ __global__ void add_with_offsets_2D(
     for (int k = 0; k < C; k++) // index of basic cell
     {
         i = sum_indices[j][k];
-        if (i >= 0) // negative index means do nothing
+        // ***_in_composite and ***_basic are relative positions that we 
+        // want to copy.
+        u = weights[j][k];
+        lc = left_in_composite[j][k];
+        lb = left_in_basic[j][k];
+        w = width_basic[j][k];
+        bc = bottom_in_composite[j][k];
+        bb = bottom_in_basic[j][k];
+        h = height_basic[j][k];
+
+        // Compute offsets
+        dx = x - lc;
+        dy = y - bc;
+        // negative index means do nothing
+        // Check that index is inbounds
+        if (i >= 0 && dx >= 0 && dy >= 0 && dx < w && dy < h)
         {
-            // ***_in_composite and ***_basic are relative positions that we 
-            // want to copy.
-            u = weights[j][k];
-            lc = left_in_composite[j][k];
-            lb = left_in_basic[j][k];
-            w = width_basic[j][k];
-            bc = bottom_in_composite[j][k];
-            bb = bottom_in_basic[j][k];
-            h = height_basic[j][k];
-
-            // Compute offsets
-            dx = x - lc;
-            dy = y - bc;
-            // Check that index is inbounds
-            if (dx >= 0 && dy >= 0 && dx < w && dy < h)
-            {
-                // Fill box
-                nu_composite[j][x][y] += u * nu_basic[i][lb+dx][bb+dy];
-            }
-
+            // Fill box
+            nu_composite[j][x][y] += u * nu_basic[i][lb+dx][bb+dy];
         }
     }
 }

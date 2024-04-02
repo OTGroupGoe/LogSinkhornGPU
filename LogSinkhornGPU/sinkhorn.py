@@ -91,6 +91,8 @@ class AbstractSinkhorn:
         # Error and iteration parameters
         self.max_error = max_error
         self.max_error_rel = max_error_rel
+        if self.max_error_rel:
+            self.max_error *= torch.sum(self.mu)
         self.inner_iter = inner_iter
         self.max_iter = max_iter
         self.current_error = self.max_error + 1.0
@@ -173,8 +175,6 @@ class AbstractSinkhorn:
         """
         max_error = self.max_error
         max_iter = self.max_iter
-        if self.max_error_rel:
-            max_error *= torch.sum(self.mu)
         while (self.Niter < max_iter) and (self.current_error >= max_error):
             self.current_error = self.iterate(self.inner_iter)
         status = 'converged' if self.current_error < max_error \

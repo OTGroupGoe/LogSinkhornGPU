@@ -108,7 +108,7 @@ void BalanceKernel(
 
 template <typename scalar_t>
 __global__ void add_with_offsets_2D(
-    int B, int C,
+    int B, int W, int H, int C,
     torch::PackedTensorAccessor32<scalar_t, 3> nu_composite,
     torch::PackedTensorAccessor32<scalar_t, 3> nu_basic,
     torch::PackedTensorAccessor32<scalar_t, 2> weights,
@@ -127,10 +127,15 @@ __global__ void add_with_offsets_2D(
     // to be multiplied by a weight `weights[j][k]`. Relative position of basic
     // cells in the composite bounding box extent are represented by *in_basic, 
     // *in_composite, width and height.
-    int j = blockIdx.x * blockDim.x + threadIdx.x; // index of comp cell
-    if (j >= B)                                    // take care of indices bigger than size
+    int idx = blockIdx.x * blockDim.x + threadIdx.x; // Aggregate pixel index
+    if (idx >= B*W*H)                // take care of indices bigger than size))
         return;
-    scalar_t u;
+    // Composite index
+    int j = idx / (W*H)
+    // Spatial index
+    int x = (idx % (W*H)) / H
+    int y = (idx % (W*H)) % H
+    scalar_t u, dx, dy;
     int i, lc, lb, bc, bb, w, h;
     for (int k = 0; k < C; k++) // index of basic cell
     {
@@ -146,14 +151,17 @@ __global__ void add_with_offsets_2D(
             bc = bottom_in_composite[j][k];
             bb = bottom_in_basic[j][k];
             h = height_basic[j][k];
-            // Fill box
-            for (int x = 0; x < w; x++)
+
+            // Compute offsets
+            dx = x - lc;
+            dy = y - bc;
+            // Check that index is inbounds
+            if (dx >= 0 && dy >= 0 && dx < w && dy < h)
             {
-                for (int y = 0; y < h; y++)
-                {
-                    nu_composite[j][lc + x][bc + y] += u * nu_basic[i][lb + x][bb + y];
-                }
+                // Fill box
+                nu_composite[j][x][y] += u * nu_basic[i][lb+dx][bb+dy];
             }
+
         }
     }
 }
@@ -178,7 +186,7 @@ torch::Tensor AddWithOffsetsKernel_2D(
 
     AT_DISPATCH_FLOATING_TYPES(nu_basic.scalar_type(), "add_with_offsets", ([&] {
         add_with_offsets_2D<scalar_t><<<blocks, threads>>>(
-            B, C,
+            B, w, h, C,
             nu_composite.packed_accessor32<scalar_t, 3>(),
             nu_basic.packed_accessor32<scalar_t, 3>(),
             weights.packed_accessor32<scalar_t, 2>(),
@@ -194,3 +202,94 @@ torch::Tensor AddWithOffsetsKernel_2D(
 
     return nu_composite;
 }
+
+
+
+// template <typename scalar_t>
+// __global__ void add_with_offsets_2D(
+//     int B, int C,
+//     torch::PackedTensorAccessor32<scalar_t, 3> nu_composite,
+//     torch::PackedTensorAccessor32<scalar_t, 3> nu_basic,
+//     torch::PackedTensorAccessor32<scalar_t, 2> weights,
+//     torch::PackedTensorAccessor32<int, 2> sum_indices,
+//     torch::PackedTensorAccessor32<int, 2> left_in_composite,
+//     torch::PackedTensorAccessor32<int, 2> left_in_basic,
+//     torch::PackedTensorAccessor32<int, 2> width_basic,
+//     torch::PackedTensorAccessor32<int, 2> bottom_in_composite,
+//     torch::PackedTensorAccessor32<int, 2> bottom_in_basic,
+//     torch::PackedTensorAccessor32<int, 2> height_basic
+// )
+// {
+//     // Generalization of sparse vector adition to the context of bounding boxes
+//     // sum_indices[j] indicates the indices of nu_basic that must be 
+//     // aggregated to render nu_composite[j]. Each of these basic cells may need
+//     // to be multiplied by a weight `weights[j][k]`. Relative position of basic
+//     // cells in the composite bounding box extent are represented by *in_basic, 
+//     // *in_composite, width and height.
+//     int j = blockIdx.x * blockDim.x + threadIdx.x; // index of comp cell
+//     if (j >= B)                                    // take care of indices bigger than size
+//         return;
+//     scalar_t u;
+//     int i, lc, lb, bc, bb, w, h;
+//     for (int k = 0; k < C; k++) // index of basic cell
+//     {
+//         i = sum_indices[j][k];
+//         if (i >= 0) // negative index means do nothing
+//         {
+//             // ***_in_composite and ***_basic are relative positions that we 
+//             // want to copy.
+//             u = weights[j][k];
+//             lc = left_in_composite[j][k];
+//             lb = left_in_basic[j][k];
+//             w = width_basic[j][k];
+//             bc = bottom_in_composite[j][k];
+//             bb = bottom_in_basic[j][k];
+//             h = height_basic[j][k];
+//             // Fill box
+//             for (int x = 0; x < w; x++)
+//             {
+//                 for (int y = 0; y < h; y++)
+//                 {
+//                     nu_composite[j][lc + x][bc + y] += u * nu_basic[i][lb + x][bb + y];
+//                 }
+//             }
+//         }
+//     }
+// }
+
+// torch::Tensor AddWithOffsetsKernel_2D(
+//         torch::Tensor nu_basic, int w, int h,
+//         torch::Tensor weights, torch::Tensor sum_indices,
+//         torch::Tensor left_in_composite, torch::Tensor left_in_basic,
+//         torch::Tensor width_basic,
+//         torch::Tensor bottom_in_composite, torch::Tensor bottom_in_basic,
+//         torch::Tensor height_basic) {
+
+
+//     // Init tensor of precomputed size
+//     int B = sum_indices.size(0);
+//     int C = sum_indices.size(1);
+    
+//     int threads = 256;
+//     int blocks = (B + threads - 1) / threads;
+
+//     torch::Tensor nu_composite = torch::zeros({B, w, h}, nu_basic.options());
+
+//     AT_DISPATCH_FLOATING_TYPES(nu_basic.scalar_type(), "add_with_offsets", ([&] {
+//         add_with_offsets_2D<scalar_t><<<blocks, threads>>>(
+//             B, C,
+//             nu_composite.packed_accessor32<scalar_t, 3>(),
+//             nu_basic.packed_accessor32<scalar_t, 3>(),
+//             weights.packed_accessor32<scalar_t, 2>(),
+//             sum_indices.packed_accessor32<int, 2>(),
+//             left_in_composite.packed_accessor32<int, 2>(),
+//             left_in_basic.packed_accessor32<int, 2>(),
+//             width_basic.packed_accessor32<int, 2>(),
+//             bottom_in_composite.packed_accessor32<int, 2>(),
+//             bottom_in_basic.packed_accessor32<int, 2>(),
+//             height_basic.packed_accessor32<int, 2>());
+//     }));
+//     cudaDeviceSynchronize();
+
+//     return nu_composite;
+// }

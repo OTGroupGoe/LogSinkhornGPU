@@ -180,7 +180,7 @@ torch::Tensor AddWithOffsetsKernel_2D(
     int C = sum_indices.size(1);
     
     int threads = 256;
-    int blocks = (B + threads - 1) / threads;
+    int blocks = (B*w*h + threads - 1) / threads;
 
     torch::Tensor nu_composite = torch::zeros({B, w, h}, nu_basic.options());
 

@@ -131,10 +131,10 @@ __global__ void add_with_offsets_2D(
     if (idx >= B*W*H)                // take care of indices bigger than size))
         return;
     // Composite index
-    int j = idx / (W*H)
+    int j = idx / (W*H);
     // Spatial index
-    int x = (idx % (W*H)) / H
-    int y = (idx % (W*H)) % H
+    int x = (idx % (W*H)) / H;
+    int y = (idx % (W*H)) % H;
     scalar_t u, dx, dy;
     int i, lc, lb, bc, bb, w, h;
     for (int k = 0; k < C; k++) // index of basic cell

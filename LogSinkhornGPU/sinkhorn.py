@@ -577,19 +577,74 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
 
     def get_cost(self):
         """
-        Get cost matrix.
+        Get dense cost matrix of given problems. 
         """
-        raise NotImplementedError(
-            "Not implemented yet"
-        )
 
-    def get_pi_dense(self):
+        dxs, dys, Ms, Ns = self.C
+
+        options = dict(dtype = self.mu.dtype, device = self.mu.device)
+        xs = tuple(torch.arange(M, **options).view(1, -1)*dx 
+                   for (M, dx) in zip(Ms, dxs))
+        ys = tuple(torch.arange(N, **options).view(1, -1)*dy 
+                   for (N, dy) in zip(Ns, dys))
+        X = batch_shaped_cartesian_prod(xs)
+        Y = batch_shaped_cartesian_prod(ys)
+        dim = X.shape[-1]
+        # Leave batch dimension as 1
+        C = ((X.view(1, -1, 1, dim) - Y.view(1, 1, -1, dim))**2).sum(dim=-1)
+        return C, X, Y
+
+    def get_dense_plan(self, ind=None, C=None):
         """
-        Compute dense plan.
+        Get dense plans of given problems. If no argument is given, all plans 
+        are computed. Can be memory intensive, so it is recommended to do small 
+        batches at a time via the argument `ind`.
         """
-        raise NotImplementedError(
-            "Not implemented yet"
-        )
+        if ind is None:
+            ind = slice(None,)
+        elif isinstance(ind, int):
+            ind = [ind]
+
+        if C is None:
+            C, _, _ = self.get_cost(ind)
+        # For this solver, since C is the same for all problems, it is two
+        alpha, beta = self.alpha[ind], self.beta[ind]
+        muref, nuref = self.muref[ind], self.nuref[ind]
+        B = alpha.shape[0]
+
+        pi = torch.exp(
+            (alpha.view(B, -1, 1) + beta.view(B, 1, -1) - C) / self.eps
+        ) * muref.view(B, -1, 1) * nuref.view(B, 1, -1)
+        return pi
+    
+    def conditional_expectation(self, f, dim):
+        """
+        Conditional expectation of the function f on the current plan \pi with 
+        respect to the specified dimension. 
+
+        For dim = 0 it returns the array with entries
+        E[i] = (sum_j pi[i,j]f[j]) / mu[i]
+        and for dim = 1:
+        E[j] = (sum_i pi[i,j]f[i]) / nu[j]
+
+        The dimensions of f must be consistent with those of the respective 
+        marginal. 
+        """
+        # Renormalize f
+        f0 = f.min()-1
+        fhat = f - f0
+        logfhat = log_dens(fhat)
+        if dim == 0: 
+            potential = self.alpha
+            h = self.beta / self.eps + self.lognuref + logfhat
+        elif dim == 1: 
+            potential = self.beta
+            h = self.alpha / self.eps + self.logmuref + logfhat
+        else: 
+            raise ValueError("dim must be 0 or 1")
+        
+        scaling = softmin_cuda_image(h)
+        return f0 + torch.exp(potential / self.eps + scaling)
     
 class LogSinkhornCudaImageOffset(AbstractSinkhorn):
     """

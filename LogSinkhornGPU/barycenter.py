@@ -1,6 +1,6 @@
 import torch
-from aux import * 
-from sinkhorn import LogSinkhornCudaImage
+from .aux import * 
+from .sinkhorn import LogSinkhornCudaImage
 
 class BarycenterCudaImage(LogSinkhornCudaImage):
     """

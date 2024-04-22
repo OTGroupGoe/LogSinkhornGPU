@@ -583,15 +583,12 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
             "Not implemented yet"
         )
 
-    def get_pi_dense(self):
+    def get_dense_plan(self, ind=None, C=None):
         """
-        Compute dense plan.
+        Get dense plans of given problems. If no argument is given, all plans 
+        are computed. Can be memory intensive, so it is recommended to do small 
+        batches at a time via the argument `ind`.
         """
-<<<<<<< Updated upstream
-        raise NotImplementedError(
-            "Not implemented yet"
-        )
-=======
         if ind is None:
             ind = slice(None,)
         elif isinstance(ind, int):
@@ -640,7 +637,6 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
             raise ValueError("dim must be 0 or 1")
         
         return f0 + torch.exp(potential / self.eps + scaling + self.logmuref - self.logmu)
->>>>>>> Stashed changes
     
 class LogSinkhornCudaImageOffset(AbstractSinkhorn):
     """

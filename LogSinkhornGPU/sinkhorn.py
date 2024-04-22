@@ -92,7 +92,7 @@ class AbstractSinkhorn:
         self.max_error = max_error
         self.max_error_rel = max_error_rel
         if self.max_error_rel:
-            self.max_error *= torch.sum(self.mu)
+            self.max_error *= torch.sum(self.nu)
         self.inner_iter = inner_iter
         self.max_iter = max_iter
         self.current_error = self.max_error + 1.0
@@ -558,7 +558,7 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         Compute and return new alpha
         """
         dxs, dys, Ms, Ns = self.C
-        h = self.beta / self.eps + self.lognu
+        h = self.beta / self.eps + self.lognuref
         return - self.eps * (
             softmin_cuda_image(h, Ms, Ns, self.eps, dxs, dys)
             + self.logmuref - self.logmu
@@ -569,7 +569,7 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         Compute and return new beta
         """
         dxs, dys, Ms, Ns = self.C
-        h = self.alpha / self.eps + self.logmu
+        h = self.alpha / self.eps + self.logmuref
         return - self.eps * (
             softmin_cuda_image(h, Ns, Ms, self.eps, dys, dxs)
             + self.lognuref - self.lognu
@@ -631,20 +631,23 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         marginal. 
         """
         # Renormalize f
-        f0 = f.min()-1
+        dxs, dys, Ms, Ns = self.C
+        f0 = f.min() - 0.01
         fhat = f - f0
         logfhat = log_dens(fhat)
         if dim == 0: 
             potential = self.alpha
             h = self.beta / self.eps + self.lognuref + logfhat
+            scaling = softmin_cuda_image(h, Ms, Ns, self.eps, dxs, dys)
         elif dim == 1: 
             potential = self.beta
             h = self.alpha / self.eps + self.logmuref + logfhat
+            scaling = softmin_cuda_image(h, Ns, Ms, self.eps, dys, dxs)
+
         else: 
             raise ValueError("dim must be 0 or 1")
         
-        scaling = softmin_cuda_image(h)
-        return f0 + torch.exp(potential / self.eps + scaling)
+        return f0 + torch.exp(potential / self.eps + scaling + self.logmuref - self.logmu)
     
 class LogSinkhornCudaImageOffset(AbstractSinkhorn):
     """

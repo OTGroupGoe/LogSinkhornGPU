@@ -92,7 +92,7 @@ class AbstractSinkhorn:
         self.max_error = max_error
         self.max_error_rel = max_error_rel
         if self.max_error_rel:
-            self.max_error *= torch.sum(self.mu)
+            self.max_error *= torch.sum(self.nu)
         self.inner_iter = inner_iter
         self.max_iter = max_iter
         self.current_error = self.max_error + 1.0
@@ -558,7 +558,7 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         Compute and return new alpha
         """
         dxs, dys, Ms, Ns = self.C
-        h = self.beta / self.eps + self.lognu
+        h = self.beta / self.eps + self.lognuref
         return - self.eps * (
             softmin_cuda_image(h, Ms, Ns, self.eps, dxs, dys)
             + self.logmuref - self.logmu
@@ -569,7 +569,7 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         Compute and return new beta
         """
         dxs, dys, Ms, Ns = self.C
-        h = self.alpha / self.eps + self.logmu
+        h = self.alpha / self.eps + self.logmuref
         return - self.eps * (
             softmin_cuda_image(h, Ns, Ms, self.eps, dys, dxs)
             + self.lognuref - self.lognu
@@ -587,9 +587,60 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         """
         Compute dense plan.
         """
+<<<<<<< Updated upstream
         raise NotImplementedError(
             "Not implemented yet"
         )
+=======
+        if ind is None:
+            ind = slice(None,)
+        elif isinstance(ind, int):
+            ind = [ind]
+
+        if C is None:
+            C, _, _ = self.get_cost(ind)
+        # For this solver, since C is the same for all problems, it is two
+        alpha, beta = self.alpha[ind], self.beta[ind]
+        muref, nuref = self.muref[ind], self.nuref[ind]
+        B = alpha.shape[0]
+
+        pi = torch.exp(
+            (alpha.view(B, -1, 1) + beta.view(B, 1, -1) - C) / self.eps
+        ) * muref.view(B, -1, 1) * nuref.view(B, 1, -1)
+        return pi
+    
+    def conditional_expectation(self, f, dim):
+        """
+        Conditional expectation of the function f on the current plan \pi with 
+        respect to the specified dimension. 
+
+        For dim = 0 it returns the array with entries
+        E[i] = (sum_j pi[i,j]f[j]) / mu[i]
+        and for dim = 1:
+        E[j] = (sum_i pi[i,j]f[i]) / nu[j]
+
+        The dimensions of f must be consistent with those of the respective 
+        marginal. 
+        """
+        # Renormalize f
+        dxs, dys, Ms, Ns = self.C
+        f0 = f.min() - 0.01
+        fhat = f - f0
+        logfhat = log_dens(fhat)
+        if dim == 0: 
+            potential = self.alpha
+            h = self.beta / self.eps + self.lognuref + logfhat
+            scaling = softmin_cuda_image(h, Ms, Ns, self.eps, dxs, dys)
+        elif dim == 1: 
+            potential = self.beta
+            h = self.alpha / self.eps + self.logmuref + logfhat
+            scaling = softmin_cuda_image(h, Ns, Ms, self.eps, dys, dxs)
+
+        else: 
+            raise ValueError("dim must be 0 or 1")
+        
+        return f0 + torch.exp(potential / self.eps + scaling + self.logmuref - self.logmu)
+>>>>>>> Stashed changes
     
 class LogSinkhornCudaImageOffset(AbstractSinkhorn):
     """

@@ -577,11 +577,22 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
 
     def get_cost(self):
         """
-        Get cost matrix.
+        Get dense cost matrix of given problems. 
         """
-        raise NotImplementedError(
-            "Not implemented yet"
-        )
+
+        dxs, dys, Ms, Ns = self.C
+
+        options = dict(dtype = self.mu.dtype, device = self.mu.device)
+        xs = tuple(torch.arange(M, **options).view(1, -1)*dx 
+                   for (M, dx) in zip(Ms, dxs))
+        ys = tuple(torch.arange(N, **options).view(1, -1)*dy 
+                   for (N, dy) in zip(Ns, dys))
+        X = batch_shaped_cartesian_prod(xs)
+        Y = batch_shaped_cartesian_prod(ys)
+        dim = X.shape[-1]
+        # Leave batch dimension as 1
+        C = ((X.view(1, -1, 1, dim) - Y.view(1, 1, -1, dim))**2).sum(dim=-1)
+        return C, X, Y
 
     def get_dense_plan(self, ind=None, C=None):
         """

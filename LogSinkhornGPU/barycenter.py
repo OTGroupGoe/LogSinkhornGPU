@@ -27,7 +27,7 @@ class BarycenterCudaImage(LogSinkhornCudaImage):
         # build new estimate for mu (barycenter)
         new_logmu = torch.sum(
             (self.alpha / self.eps + self.logmuref + scaling) * self.weights,
-            dims = 0, keepdims = True
+            dim = 0, keepdims = True
         )
         # compute new potential with standard sinkhorn iteration
         new_alpha = - self.eps * (scaling + self.logmuref - new_logmu)

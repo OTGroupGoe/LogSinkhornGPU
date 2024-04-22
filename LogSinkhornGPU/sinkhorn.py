@@ -393,7 +393,7 @@ class LogSinkhornKeops(AbstractSinkhorn):
         Compute and return new alpha
         """
         x, y = self.C
-        h = self.beta / self.eps + self.lognu
+        h = self.beta / self.eps + self.lognuref
         return - self.eps * (
             softmin_keops(h, x, y, self.eps) + self.logmuref - self.logmu
         )
@@ -403,7 +403,7 @@ class LogSinkhornKeops(AbstractSinkhorn):
         Compute and return new beta
         """
         x, y = self.C
-        h = self.alpha / self.eps + self.logmu
+        h = self.alpha / self.eps + self.logmuref
         return - self.eps * (
             softmin_keops(h, y, x, self.eps) + self.lognuref - self.lognu
         )
@@ -459,7 +459,7 @@ class LogSinkhornKeopsImage(AbstractSinkhorn):
         Compute and return new alpha
         """
         xs, ys = self.C
-        h = self.beta / self.eps + self.lognu
+        h = self.beta / self.eps + self.lognuref
         return - self.eps * (
             softmin_keops_image(h, xs, ys, self.eps)
             + self.logmuref - self.logmu
@@ -470,7 +470,7 @@ class LogSinkhornKeopsImage(AbstractSinkhorn):
         Compute and return new beta
         """
         xs, ys = self.C
-        h = self.alpha / self.eps + self.logmu
+        h = self.alpha / self.eps + self.logmuref
         return - self.eps * (
             softmin_keops_image(h, ys, xs, self.eps)
             + self.lognuref - self.lognu

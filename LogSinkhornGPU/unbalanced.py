@@ -87,6 +87,48 @@ class UnbalancedSinkhornCudaImageOffset(LogSinkhornCudaImageOffset):
         self.eps = new_eps
         self.eps_lam = self.eps/(1.0 + self.eps/self.lam)
 
+    def get_current_error(self):
+        """
+        Get current error for unbalanced Sinkhorn
+        """
+        new_alpha = self.get_new_alpha()
+        # Compute current marginal
+        new_mu = self.mu * torch.exp((self.alpha - new_alpha)/self.eps_lam)
+        # Update beta (we get an iteration for free)
+        self.alpha = new_alpha
+        # Finish this sinkhorn iter
+        self.update_beta()
+        # Return L1 error
+        return torch.sum(torch.abs(self.mu - new_mu))
+    
+    def get_actual_Y_marginal(self):
+        dxs, dys, Ms, Ns = self.C
+        h = self.alpha / self.eps + self.logmuref + self.offsetX
+        scaling = softmin_cuda_image(h, Ns, Ms, self.eps, dys, dxs) \
+            + self.offsetY + self.offset_const
+        return torch.exp(self.beta / self.eps + scaling) * self.nuref
+
+    def get_actual_X_marginal(self):
+        dxs, dys, Ms, Ns = self.C
+        h = self.beta / self.eps + self.lognuref + self.offsetY
+        scaling = softmin_cuda_image(h, Ms, Ns, self.eps, dxs, dys) \
+            + self.offsetX + self.offset_const
+        return torch.exp(self.alpha / self.eps + scaling) * self.muref
+    
+    def primal_score(self):
+        PXpi = self.get_actual_X_marginal()
+        PYpi = self.get_actual_Y_marginal()
+
+        score = torch.sum(self.alpha * PXpi) + torch.sum(self.beta * PYpi) \
+            + self.lam*KL(PXpi, self.mu) + self.lam*KL(PYpi, self.nu)
+        return score.item()
+    
+    def dual_score(self):
+        lam = self.lam
+        score = - lam * torch.sum((torch.exp(-self.alpha/lam)-1)*self.mu) \
+                - lam * torch.sum((torch.exp(-self.beta/lam)-1)*self.nu)
+        return score.item()
+    
 class UnbalancedPartialSinkhornCudaImageOffset(UnbalancedSinkhornCudaImageOffset):
     """
     TODO: docstring
@@ -123,3 +165,19 @@ class UnbalancedPartialSinkhornCudaImageOffset(UnbalancedSinkhornCudaImageOffset
             self.lognu_nJ, logKTu
         )
         return -self.lam*self.t - self.eps*logKTu
+    
+    def primal_score(self):
+        PXpi = self.get_actual_X_marginal()
+        # TODO: Here we need to add them all?
+        PYpi = self.get_actual_Y_marginal()
+
+        score = torch.sum(self.alpha * PXpi) + torch.sum(self.beta * PYpi) \
+            + self.lam*KL(PXpi, self.mu) + self.lam*KL(PYpi + self.nu_nJ, self.nu)
+        return score.item()
+
+    def dual_score(self):
+        lam = self.lam
+        score = - lam * torch.sum((torch.exp(-self.alpha/lam)-1)*self.mu) \
+                - lam * torch.sum((torch.exp(-self.beta/lam)-1)*self.nu) \
+                - torch.sum(self.beta, self.nu_nJ)
+        return score.item()

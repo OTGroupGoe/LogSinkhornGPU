@@ -179,5 +179,5 @@ class UnbalancedPartialSinkhornCudaImageOffset(UnbalancedSinkhornCudaImageOffset
         lam = self.lam
         score = - lam * torch.sum((torch.exp(-self.alpha/lam)-1)*self.mu) \
                 - lam * torch.sum((torch.exp(-self.beta/lam)-1)*self.nu) \
-                - torch.sum(self.beta, self.nu_nJ)
+                - torch.sum(self.beta * self.nu_nJ)
         return score.item()

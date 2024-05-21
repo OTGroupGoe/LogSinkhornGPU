@@ -25,6 +25,17 @@ def geom_dims(a):
     """
     return a.shape[1:]
 
+def KL(a, b):
+    """
+    Kullback-Leibler divergence
+    """
+    B = batch_dim(a)
+    mask_singular = (a != 0) & (b == 0)
+    if mask_singular.sum() > 0:
+        # a singular wrt b
+        return torch.inf
+    else:
+        return (a * (log_dens(a) - log_dens(b)) - a + b).sum()
 
 def softmin_torch(h, dim):
     """

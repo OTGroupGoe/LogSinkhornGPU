@@ -18,7 +18,8 @@ setup(
             sources=[
                 'LogSinkhornGPU/backend/pybind.cpp',
                 'LogSinkhornGPU/backend/logsumexp.cu',
-                'LogSinkhornGPU/backend/domdec.cu'
+                'LogSinkhornGPU/backend/domdec.cu',
+                'LogSinkhornGPU/backend/unbalanced-domdec.cu'
             ],
             extra_compile_args={'nvcc': ['-O2', "--use_fast_math"]},
         ),

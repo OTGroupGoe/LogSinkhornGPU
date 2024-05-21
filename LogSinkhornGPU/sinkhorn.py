@@ -580,7 +580,6 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         Get dense cost matrix of given problems. 
         """
 
-<<<<<<< HEAD
         dxs, dys, Ms, Ns = self.C
 
         options = dict(dtype = self.mu.dtype, device = self.mu.device)
@@ -595,8 +594,6 @@ class LogSinkhornCudaImage(AbstractSinkhorn):
         C = ((X.view(1, -1, 1, dim) - Y.view(1, 1, -1, dim))**2).sum(dim=-1)
         return C, X, Y
 
-=======
->>>>>>> master
     def get_dense_plan(self, ind=None, C=None):
         """
         Get dense plans of given problems. If no argument is given, all plans 

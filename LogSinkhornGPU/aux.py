@@ -30,10 +30,8 @@ def KL(a, b):
     Kullback-Leibler divergence
     """
     B = batch_dim(a)
-    mask_apos = a != 0
-    mask_b0 = b == 0
-    mask_inf = (mask_b0) & (mask_apos)
-    if mask_inf.sum() > 0:
+    mask_singular = (a != 0) & (b == 0)
+    if mask_singular.sum() > 0:
         # a singular wrt b
         return torch.inf
     else:

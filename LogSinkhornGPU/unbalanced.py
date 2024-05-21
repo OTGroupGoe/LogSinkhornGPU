@@ -44,7 +44,30 @@ class UnbalancedSinkhornTorch(LogSinkhornTorch):
 
 class UnbalancedSinkhornCudaImageOffset(LogSinkhornCudaImageOffset):
     """
-    TODO: docstring
+    Online Sinkhorn solver for unbalanced OT with KL penalty on images with 
+    separable cost, custom CUDA implementation. 
+    Allows images with offset supports.
+
+    Attributes
+    ----------
+    mu : torch.Tensor of size (B, M1, M2)
+        First marginals
+    nu : torch.Tensor of size (B, N1, N2)
+        Second marginals 
+    C : tuple of the form ((x1, x2), (y1, y2))
+        Grid coordinates
+    eps : float
+        Regularization strength
+    lam : float
+        Parameter for KL penalty
+    muref : torch.Tensor with same shape as mu (except axis 0, which can be 1)
+        First reference measure for the Gibbs energy, 
+        i.e. K = muref \otimes nuref exp(-C/eps)
+    nuref : torch.Tensor with same shape as nu (except axis 0, which can be 1)
+        Second reference measure for the Gibbs energy, 
+        i.e. K = muref \otimes nuref exp(-C/eps)
+    alpha_init : torch.Tensor with same shape as mu, or None
+        Initialization for the first Sinkhorn potential
     """
     def __init__(self, mu, nu, C, eps, lam, **kwargs):
         self.lam = lam
@@ -126,12 +149,37 @@ class UnbalancedSinkhornCudaImageOffset(LogSinkhornCudaImageOffset):
     def dual_score(self):
         lam = self.lam
         score = - lam * torch.sum((torch.exp(-self.alpha/lam)-1)*self.mu) \
-                - lam * torch.sum((torch.exp(-self.beta/lam)-1)*self.nu)
+                - lam * torch.sum((torch.exp(-self.beta /lam)-1)*self.nu)
         return score.item()
     
 class UnbalancedPartialSinkhornCudaImageOffset(UnbalancedSinkhornCudaImageOffset):
     """
-    TODO: docstring
+    Online Sinkhorn solver for unbalanced domain decomposition with KL penalty 
+    on images with separable cost, custom CUDA implementation. 
+    Allows images with offset supports.
+
+    Attributes
+    ----------
+    mu : torch.Tensor of size (B, M1, M2)
+        First marginals
+    nu : torch.Tensor of size (B, N1, N2)
+        Second marginals 
+    C : tuple of the form ((x1, x2), (y1, y2))
+        Grid coordinates
+    eps : float
+        Regularization strength
+    lam : float
+        Parameter for KL penalty
+    nu_nJ : torch.Tensor of size (B, N1, N2)
+        Cell submarginal.
+    muref : torch.Tensor with same shape as mu (except axis 0, which can be 1)
+        First reference measure for the Gibbs energy, 
+        i.e. K = muref \otimes nuref exp(-C/eps)
+    nuref : torch.Tensor with same shape as nu (except axis 0, which can be 1)
+        Second reference measure for the Gibbs energy, 
+        i.e. K = muref \otimes nuref exp(-C/eps)
+    alpha_init : torch.Tensor with same shape as mu, or None
+        Initialization for the first Sinkhorn potential
     """
     def __init__(self, mu, nu, C, eps, lam, nu_nJ, newton_iter=10, newton_tol=1e-10,
                  **kwargs):
@@ -166,18 +214,19 @@ class UnbalancedPartialSinkhornCudaImageOffset(UnbalancedSinkhornCudaImageOffset
         )
         return -self.lam*self.t - self.eps*logKTu
     
-    def primal_score(self):
-        PXpi = self.get_actual_X_marginal()
-        # TODO: Here we need to add them all?
-        PYpi = self.get_actual_Y_marginal()
+    # TODO: check following definitions of primal and dual scores
+    # def primal_score(self):
+    #     PXpi = self.get_actual_X_marginal()
+    #     # TODO: Here we need to add them all?
+    #     PYpi = self.get_actual_Y_marginal()
 
-        score = torch.sum(self.alpha * PXpi) + torch.sum(self.beta * PYpi) \
-            + self.lam*KL(PXpi, self.mu) + self.lam*KL(PYpi + self.nu_nJ, self.nu)
-        return score.item()
+    #     score = torch.sum(self.alpha * PXpi) + torch.sum(self.beta * PYpi) \
+    #         + self.lam*KL(PXpi, self.mu) + self.lam*KL(PYpi + self.nu_nJ, self.nu)
+    #     return score.item()
 
-    def dual_score(self):
-        lam = self.lam
-        score = - lam * torch.sum((torch.exp(-self.alpha/lam)-1)*self.mu) \
-                - lam * torch.sum((torch.exp(-self.beta/lam)-1)*self.nu) \
-                - torch.sum(self.beta * self.nu_nJ)
-        return score.item()
+    # def dual_score(self):
+    #     lam = self.lam
+    #     score = - lam * torch.sum((torch.exp(-self.alpha/lam)-1)*self.mu) \
+    #             - lam * torch.sum((torch.exp(-self.beta/lam)-1)*self.nu) \
+    #             - torch.sum(self.beta * self.nu_nJ)
+    #     return score.item()

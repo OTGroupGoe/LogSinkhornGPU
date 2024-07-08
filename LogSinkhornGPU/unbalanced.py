@@ -82,7 +82,7 @@ class UnbalancedSinkhornCudaImageOffset(LogSinkhornCudaImageOffset):
         h = self.beta / self.eps + self.lognuref + self.offsetY
         return - self.eps_lam * (
             softmin_cuda_image(h, Ms, Ns, self.eps, dxs, dys)
-            + self.offsetX + self.offset_const + self.logmuref - self.logmu
+            + self.offsetX + self.offset_const + (self.logmuref - self.logmu)
         )
 
     def get_new_beta(self):
@@ -93,7 +93,7 @@ class UnbalancedSinkhornCudaImageOffset(LogSinkhornCudaImageOffset):
         h = self.alpha / self.eps + self.logmuref + self.offsetX
         return - self.eps_lam * (
             softmin_cuda_image(h, Ns, Ms, self.eps, dys, dxs)
-            + self.offsetY + self.offset_const + self.lognuref - self.lognu
+            + self.offsetY + self.offset_const + (self.lognuref - self.lognu)
         )
 
     def change_eps(self, new_eps):
@@ -129,14 +129,14 @@ class UnbalancedSinkhornCudaImageOffset(LogSinkhornCudaImageOffset):
         h = self.alpha / self.eps + self.logmuref + self.offsetX
         scaling = softmin_cuda_image(h, Ns, Ms, self.eps, dys, dxs) \
             + self.offsetY + self.offset_const
-        return torch.exp(self.beta / self.eps + scaling) * self.nuref
+        return torch.exp(self.beta / self.eps + scaling + self.lognuref)
 
     def get_actual_X_marginal(self):
         dxs, dys, Ms, Ns = self.C
         h = self.beta / self.eps + self.lognuref + self.offsetY
         scaling = softmin_cuda_image(h, Ms, Ns, self.eps, dxs, dys) \
             + self.offsetX + self.offset_const
-        return torch.exp(self.alpha / self.eps + scaling) * self.muref
+        return torch.exp(self.alpha / self.eps + scaling + self.logmuref)
     
     def primal_score(self):
         PXpi = self.get_actual_X_marginal()

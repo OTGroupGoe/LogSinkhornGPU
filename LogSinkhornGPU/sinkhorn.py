@@ -92,7 +92,7 @@ class AbstractSinkhorn:
         self.max_error = max_error
         self.max_error_rel = max_error_rel
         if self.max_error_rel:
-            self.max_error *= torch.sum(self.nu)
+            self.max_error *= torch.sum(self.mu)
         self.inner_iter = inner_iter
         self.max_iter = max_iter
         self.current_error = self.max_error + 1.0
@@ -724,7 +724,7 @@ class LogSinkhornCudaImageOffset(AbstractSinkhorn):
         h = self.beta / self.eps + self.lognuref + self.offsetY
         return - self.eps * (
             softmin_cuda_image(h, Ms, Ns, self.eps, dxs, dys)
-            + self.offsetX + self.offset_const + self.logmuref - self.logmu
+            + self.offsetX + self.offset_const + (self.logmuref - self.logmu)
         )
 
     def get_new_beta(self):
@@ -735,7 +735,7 @@ class LogSinkhornCudaImageOffset(AbstractSinkhorn):
         h = self.alpha / self.eps + self.logmuref + self.offsetX
         return - self.eps * (
             softmin_cuda_image(h, Ns, Ms, self.eps, dys, dxs)
-            + self.offsetY + self.offset_const + self.lognuref - self.lognu
+            + self.offsetY + self.offset_const + (self.lognuref - self.lognu)
         )
 
     def get_cost(self, ind=None):

@@ -8,7 +8,7 @@ def log_dens(a):
     Log of `a`, thresholded at the negative infinities. Taken from `geomloss`.
     """
     a_log = a.log()
-    a_log[a <= 0] = -10000.0
+    a_log[a <= 0] = -1.0e10
     return a_log
 
 

@@ -76,6 +76,25 @@ torch::Tensor AddWithOffsetsCUDA_2D(
   );
 }
 
+/////////////////////
+// add with offsets: new version
+/////////////////////
+
+torch::Tensor AddWithOffsetsCUDA_2D_OutputSide(
+    torch::Tensor nu_basic, int w, int h,
+    torch::Tensor weights, torch::Tensor sum_indices,
+    torch::Tensor offsets_c,  torch::Tensor offsets_b)
+{
+
+  // TODO: should we check anything here?
+
+  // Call CUDA function
+  return AddWithOffsetsKernel_2D_OutputSide(nu_basic, w, h,
+    weights, sum_indices,
+    offsets_c, offsets_b
+  );
+}
+
 void InnerNewtonCUDA(
     int n_iter, torch::Tensor tol, torch::Tensor eps, torch::Tensor lam,
     torch::Tensor t, torch::Tensor lognu, torch::Tensor lognu_nJ, torch::Tensor logKTu)
@@ -93,5 +112,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   m.def("LogSumExpCUDA", &LogSumExpCUDA, "LogSumExpCUDA");
   m.def("BalanceCUDA", &BalanceCUDA, "BalanceCUDA");
   m.def("AddWithOffsetsCUDA_2D", &AddWithOffsetsCUDA_2D, "AddWithOffsetsCUDA_2D");
+  m.def("AddWithOffsetsCUDA_2D_OutputSide", &AddWithOffsetsCUDA_2D_OutputSide, "AddWithOffsetsCUDA_2D_OutputSide");
   m.def("InnerNewtonCUDA", &InnerNewtonCUDA, "InnerNewtonCUDA");
 }

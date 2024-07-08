@@ -194,3 +194,79 @@ torch::Tensor AddWithOffsetsKernel_2D(
 
     return nu_composite;
 }
+
+
+
+////////////////////////////////////////////////////////
+// Generalization of basic-to-composite: add with offset
+////////////////////////////////////////////////////////
+
+template <typename scalar_t>
+__global__ void add_with_offsets_2D_output_side(
+    int B, int C, int wc, int hc, int wb, int hb,
+    torch::PackedTensorAccessor32<scalar_t, 3> nu_composite,
+    torch::PackedTensorAccessor32<scalar_t, 3> nu_basic,
+    torch::PackedTensorAccessor32<scalar_t, 2> weights,
+    torch::PackedTensorAccessor32<int, 2> sum_indices,
+    torch::PackedTensorAccessor32<int, 2> offsets_b,
+    torch::PackedTensorAccessor32<int, 2> offsets_c
+)
+{
+
+    int index = blockIdx.x * blockDim.x + threadIdx.x; // index of comp cell
+    int j = index / (w*h);
+    if (j >= B)                 // take care of indices bigger than size
+        return;
+    int x = (index % (w*h)) / h;
+    int y = (index % (w*h)) % h;
+    scalar_t u;
+    int i, xb, yb; // complete
+    for (int k = 0; k < C; k++) // index of basic cell in sum indices
+    {
+        i = sum_indices[j][k];
+        if (i >= 0) // negative index means do nothing
+        {
+            // ***_in_composite and ***_basic are relative positions that we 
+            // want to copy.
+            u = weights[j][k];
+            xb = x + offsets_c[j][0] - offsets_b[i][0];
+            yb = y + offsets_c[j][1] - offsets_b[i][1];
+            if ((xb >= 0) && (yb >= 0) && (xb < wb) && (yb < hb))
+                nu_composite[j][x][y] += u * nu_basic[i][xb][yb];
+        }
+    }
+}
+
+torch::Tensor AddWithOffsetsKernel_2D_OutputSide(
+        torch::Tensor nu_basic, int w, int h,
+        torch::Tensor weights, torch::Tensor sum_indices,
+        torch::Tensor offsets_c,  torch::Tensor offsets_b)
+{
+
+
+    // Init tensor of precomputed size
+    int B = sum_indices.size(0);
+    int C = sum_indices.size(1);
+    // Basic width and height
+    int wb = nu_basic.size(1);
+    int hb = nu_basic.size(2);
+    
+    int threads = 256;
+    int blocks = (B*w*h + threads - 1) / threads;
+
+    torch::Tensor nu_composite = torch::zeros({B, w, h}, nu_basic.options());
+
+    AT_DISPATCH_FLOATING_TYPES(nu_basic.scalar_type(), "add_with_offsets_output", ([&] {
+        add_with_offsets_2D_output_side<scalar_t><<<blocks, threads>>>(
+            B, C, w, h, wb, hb,
+            nu_composite.packed_accessor32<scalar_t, 3>(),
+            nu_basic.packed_accessor32<scalar_t, 3>(),
+            weights.packed_accessor32<scalar_t, 2>(),
+            sum_indices.packed_accessor32<int, 2>(),
+            offsets_c.packed_accessor32<int, 2>(),
+            offsets_b.packed_accessor32<int, 2>()
+    }));
+    cudaDeviceSynchronize();
+
+    return nu_composite;
+}
